@@ -1,5 +1,6 @@
 CFLAGS=-g 
-all: dbg sigsegv sigill sigfpe sigalarm
+TARGET = dbg sigsegv sigill sigfpe sigalarm
+all: $(TARGET)
 dbg: src/dbg.c
 	$(CC) $(CFLAGS) -o $@ $<
 sigsegv: test/sigsegv.c
@@ -11,4 +12,4 @@ sigfpe: test/sigfpe.c
 sigalarm: test/sigalarm.c
 	$(CC) $(CFLAGS) -o $@ $<
 clean:
-	-rm dbg 
+	$(RM) $(TARGET) 
