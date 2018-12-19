@@ -9,3 +9,5 @@ Commands currently supported.
 10. Read
 11. Write
 12. Regs
+13. Continue
+14. Quit
