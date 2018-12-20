@@ -143,11 +143,11 @@ static int get_siginfo(pid_t pid)
 {
     siginfo_t siginfo;
     ptrace(PTRACE_GETSIGINFO, pid, 0, &siginfo);
-    printf("%d\n",siginfo.si_signo);
-    printf("%d %d\n",siginfo.si_code, TRAP_BRKPT);
+    //printf("%d\n",siginfo.si_signo);
+    //printf("%d %d\n",siginfo.si_code, TRAP_BRKPT);
     if(siginfo.si_code == TRAP_BRKPT)
     {
-        printf("Break point\n");
+        //printf("Break point\n");
         return 0;
     }
     if(siginfo.si_code == TRAP_TRACE)
@@ -158,6 +158,12 @@ static int get_siginfo(pid_t pid)
     if(siginfo.si_code == SI_KERNEL)
     {
         //printf("Trace\n");
+        return 0;
+    }
+    if(siginfo.si_code == SI_USER)
+    {
+        //printf("Trace\n");
+        return siginfo.si_signo;
     }
     return siginfo.si_signo;
 }
