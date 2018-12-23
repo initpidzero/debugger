@@ -29,6 +29,7 @@ static int tracee_pid =  0;
 enum
 {
     p_help,
+    p_run,
     p_attach,
     p_detach,
     p_write,
@@ -45,6 +46,7 @@ enum
 /* corresponsing command string for each command */
 char commands[][9] = {
     "help",
+    "run",
     "attach",
     "detach",
     "write",
@@ -911,6 +913,61 @@ static int pattach(pid_t pid)
     return 0;
 }
 
+/* Fork the binary, set PTRACEME and exec it*/
+static int fork_exec(char *bin)
+{
+    errno = 0;
+    pid_t pid = fork();
+    if(pid == 0)
+    {
+        char *argv[] = {bin, NULL};
+        int status;
+        /* child */
+        if(ptrace(PTRACE_TRACEME, 0, 0, 0) == -1)
+            return -1;
+
+        errno = 0;
+        status = execve(bin, argv, NULL);
+        if(status == -1 || errno != 0)
+        {
+            fprintf(stderr, "execve error %s\n", strerror(errno));
+            return -1;
+        }
+        /* good execve never returns */
+    }
+    else if (pid == -1)
+    {
+        fprintf(stderr, "fork error %s\n", strerror(errno));
+        return -1;
+    }
+    else
+    {
+        /* parent */
+        tracee_pid = pid;
+        pwait(tracee_pid, 0);
+
+    }
+    return 0;
+}
+
+/* Run a given binary file name under ptrace */
+static int run(char *buf)
+{
+    pid_t pid;
+    char *bin = strtok(NULL, " \n");
+    if(bin == NULL)
+        return -1;
+    errno = 0;
+    int status = access(bin, R_OK | X_OK);
+    if(status == -1 || errno != 0)
+    {
+        fprintf(stderr, "Access error %s\n", strerror(errno));
+        return -1;
+    }
+    fork_exec(bin);
+
+    return 0;
+}
 /* This function simply extracts pid from
  * user supplied attach command */
 static pid_t extract_pid(char *buf, int com)
@@ -942,6 +999,11 @@ int dbg(int *exit, char *buf)
     {
         case p_help:
             help();
+            break;
+
+        case p_run:
+            if(run(buf) == -1)
+                fprintf(stderr, "Cannot run this binary\n");
             break;
 
         case p_attach:
