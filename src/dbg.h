@@ -1,3 +1,7 @@
+#ifndef __DBG_H__
+#define __DBG_H__
+
+#define WORD 8
 /* this function is main debugger api, it can used by passing commands in buf */
 int dbg(int *exit, char *buf);
 
@@ -23,3 +27,4 @@ struct sig_dis
 };
 
 /* we are only supporting one break point at this moment */
+#endif

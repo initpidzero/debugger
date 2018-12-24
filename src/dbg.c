@@ -785,15 +785,50 @@ static int delete(pid_t pid)
 
     return 0;
 }
-/* get back trace */
-static int bt(pid_t pid)
+
+/* Return address is stored just about rbp value pushed on stack
+ * so to retrieve return address add WORD to rbp and
+ * find value stored at that address */
+static uintptr_t get_retaddr(uintptr_t rbp, pid_t pid)
 {
-    uintptr_t rbp = get_rbp(pid);
     uintptr_t word;
-    uintptr_t addr = rbp + 8;
+    uintptr_t addr = rbp + WORD;
     if(peek_long(addr, &word, pid) == -1)
         return -1;
-    printf("%lx %lx %lx\n", rbp, addr, word);
+
+    return word;
+}
+
+/* get contents or rbp, check the return address
+ * before rbp */
+static int get_next_frame(uintptr_t *rbp, pid_t pid)
+{
+    uintptr_t word;
+    /* what is at rbp */
+    if(peek_long(*rbp, &word, pid) == -1)
+        return -1;
+
+    *rbp = word;
+    word = get_retaddr(*rbp, pid);
+    printf("%lx %lx \n", rbp, word);
+
+    return 0;
+}
+
+/* get back trace */
+/* let's do it for 5 levels */
+static int bt(pid_t pid)
+{
+    /* start unwinding */
+    uintptr_t rbp = get_rbp(pid);
+    uintptr_t word = get_retaddr(rbp, pid);
+    printf("%lx %lx \n", rbp, word);
+
+    /* second */
+    get_next_frame(&rbp, pid);
+    /* third time */
+    get_next_frame(&rbp, pid);
+
     return 0;
 }
 
