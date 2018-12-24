@@ -40,11 +40,12 @@ enum
     p_break,
     p_delete,
     p_signal,
+    p_bt,
     p_quit
 };
 
 /* corresponsing command string for each command */
-char commands[][9] = {
+char commands[][10] = {
     "help",
     "run",
     "attach",
@@ -57,6 +58,7 @@ char commands[][9] = {
     "break",
     "delete",
     "signal",
+    "backtrace",
     "quit"
 };
 
@@ -437,6 +439,15 @@ static int get_regs(struct user_regs_struct *regs, pid_t pid)
     return status;
 }
 
+/* Returns value of rbp */
+static uintptr_t get_rbp(pid_t pid)
+{
+    struct user_regs_struct regs;
+    if(get_regs(&regs, pid) == -1)
+        return 0;
+    return (uintptr_t)regs.rbp;
+}
+
 /* Returns value of rip */
 static uintptr_t get_rip(pid_t pid)
 {
@@ -774,6 +785,17 @@ static int delete(pid_t pid)
 
     return 0;
 }
+/* get back trace */
+static int bt(pid_t pid)
+{
+    uintptr_t rbp = get_rbp(pid);
+    uintptr_t word;
+    uintptr_t addr = rbp + 8;
+    if(peek_long(addr, &word, pid) == -1)
+        return -1;
+    printf("%lx %lx %lx\n", rbp, addr, word);
+    return 0;
+}
 
 /* This function set the action for signals from debuggee
  */
@@ -856,6 +878,7 @@ void help()
 {
     char *help_str = "Commands supported\n"
         "help:      This command\n"
+        "run:       run a (binary)\n"
         "attach:    Attach to (pid)\n"
         "detach:    Detach \n"
         "write:     Write (value) to (addr)\n"
@@ -867,6 +890,7 @@ void help()
         "break:      Show all breakpoints\n"
         "signal:    Set signal action to (pass) or (ignore)\n"
         "signal:    Show signal action \n"
+        "backtrace: Show backtrace \n"
         "quit:      Exit from debugger\n" ;
 
     printf("%s", help_str);
@@ -1073,6 +1097,11 @@ int dbg(int *exit, char *buf)
         case p_signal:
             if(p_sig(buf, tracee_pid) == -1)
                 fprintf(stderr, "Cannot set signal action \n");
+            break;
+
+        case p_bt:
+            if(bt(tracee_pid) == -1)
+                fprintf(stderr, "Cannot get backtrace \n");
             break;
 
         case p_quit:
