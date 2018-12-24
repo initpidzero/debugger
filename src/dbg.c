@@ -824,10 +824,12 @@ static int bt(pid_t pid)
     uintptr_t word = get_retaddr(rbp, pid);
     printf("%lx %lx \n", rbp, word);
 
-    /* second */
-    get_next_frame(&rbp, pid);
-    /* third time */
-    get_next_frame(&rbp, pid);
+    /* we would want another condition besides i <2 ? */
+    for(int i = 0; i < 2; i++)
+    {
+        if( get_next_frame(&rbp, pid) == -1)
+            return -1;
+    }
 
     return 0;
 }
