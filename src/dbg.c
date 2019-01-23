@@ -524,9 +524,11 @@ static int p_peek(char *buf, pid_t pid)
 {
     uintptr_t addr = 0;
     unsigned long word = 0;
+
     char *temp = strtok(NULL, " \n");
     if(temp == NULL)
         return -1;
+
 
     addr = (uintptr_t)strtoul(temp, NULL, 16);
     if(addr == 0 || errno != 0)
@@ -786,17 +788,75 @@ static int delete(pid_t pid)
     return 0;
 }
 
+/* callq's opcode is E8 for near calls
+ * We find where in last 8 bytes is e*8
+ */
+static int whereis_e8(uintptr_t word)
+{
+    uintptr_t e8 = 0xe8;
+    int pos = 0;
+    int i;
+    for(i = 0; i < 8; i++)
+    {
+        if (word & e8) {
+            pos = i;
+            break;
+        }
+        e8 <<= 8;
+    }
+
+    return pos;
+}
+
+/* How much offset from current point into
+ * the function call */
+static long long find_offset(int shift, uintptr_t word)
+{
+    uintptr_t mask = 0xffffffffffffffff;
+    long long offset;
+    mask <<= (shift + 1) * 8;
+    offset = word & mask;
+    offset =  offset >> (sizeof(int) * 8);
+   // printf("offset = %ld %lx %d\n", offset, mask, shift);
+
+    return offset;
+
+}
+
+/* Find the address address of function which was called.
+ */
+static int get_fnaddr(uintptr_t ret, pid_t pid)
+{
+
+    uintptr_t word;
+    uintptr_t addr = ret - WORD;
+    long long offset;
+    int shift;
+
+    /* so we will peak 8 bytes before the return address */
+    if(peek_long(addr, &word, pid) == -1)
+        return -1;
+    //printf("fn here = %lx \n", word);
+
+    /* locate where is callq instruction */
+    shift = whereis_e8(word);
+    offset = find_offset(shift, word);
+    //printf("call point = %lx\n",addr + shift);
+    printf("%lx\n", (uintptr_t)((long long)ret + offset));
+
+    return 0;
+}
+
 /* Return address is stored just about rbp value pushed on stack
  * so to retrieve return address add WORD to rbp and
  * find value stored at that address */
-static uintptr_t get_retaddr(uintptr_t rbp, pid_t pid)
+static int get_retaddr(uintptr_t rbp, pid_t pid, uintptr_t *ret)
 {
-    uintptr_t word;
     uintptr_t addr = rbp + WORD;
-    if(peek_long(addr, &word, pid) == -1)
+    if(peek_long(addr, ret, pid) == -1)
         return -1;
 
-    return word;
+    return 0;
 }
 
 /* get contents or rbp, check the return address
@@ -809,20 +869,34 @@ static int get_next_frame(uintptr_t *rbp, pid_t pid)
         return -1;
 
     *rbp = word;
-    word = get_retaddr(*rbp, pid);
-    printf("%lx %lx \n", rbp, word);
 
-    return 0;
+    if( get_retaddr(*rbp, pid, &word) == -1)
+        return -1;
+
+    //printf("%lx %lx \n", rbp, word);
+    return get_fnaddr(word, pid);
+
 }
 
 /* get back trace */
 /* let's do it for 5 levels */
 static int bt(pid_t pid)
 {
+    uintptr_t word;
+
     /* start unwinding */
     uintptr_t rbp = get_rbp(pid);
-    uintptr_t word = get_retaddr(rbp, pid);
-    printf("%lx %lx \n", rbp, word);
+
+    /* getting rbp failed for some reason */
+    if(rbp == 0)
+        return -1;
+
+    if(get_retaddr(rbp, pid, &word) == -1)
+        return -1;
+
+    //printf("%lx %lx \n", rbp, word);
+    if(get_fnaddr(word, pid) == -1)
+        return -1;
 
     /* we would want another condition besides i <2 ? */
     for(int i = 0; i < 2; i++)
@@ -1097,31 +1171,61 @@ int dbg(int *exit, char *buf)
             break;
 
         case p_write:
+            if(tracee_pid == 0)
+            {
+                fprintf(stderr, "No debuggee found\n");
+                break;
+            }
             if(p_poke(buf, tracee_pid) == -1)
                 fprintf(stderr, "unable to write\n");
             break;
 
         case p_read:
+            if(tracee_pid == 0)
+            {
+                fprintf(stderr, "No debuggee found\n");
+                break;
+            }
             if(p_peek(buf, tracee_pid) == -1)
                 fprintf(stderr, "unable to read\n");
             break;
 
         case p_regs:
+            if(tracee_pid == 0)
+            {
+                fprintf(stderr, "No debuggee found\n");
+                break;
+            }
             if(regs(buf, tracee_pid) == -1)
                 fprintf(stderr, "unable to get register values\n");
             break;
 
         case p_cont:
+            if(tracee_pid == 0)
+            {
+                fprintf(stderr, "No debuggee found\n");
+                break;
+            }
             if(cont_bp(tracee_pid) == -1)
                 fprintf(stderr, "unable to continue\n");
             break;
 
         case p_step:
+            if(tracee_pid == 0)
+            {
+                fprintf(stderr, "No debuggee found\n");
+                break;
+            }
             if(step_bp(tracee_pid) == -1)
                 fprintf(stderr, "unable to step\n");
             break;
 
         case p_break:
+            if(tracee_pid == 0)
+            {
+                fprintf(stderr, "No debuggee found\n");
+                break;
+            }
             if(breakpoint(buf, tracee_pid) == -1)
                 fprintf(stderr, "Breakpoint couldn't be set\n");
             break;
@@ -1137,6 +1241,11 @@ int dbg(int *exit, char *buf)
             break;
 
         case p_bt:
+            if(tracee_pid == 0)
+            {
+                fprintf(stderr, "No debuggee found\n");
+                break;
+            }
             if(bt(tracee_pid) == -1)
                 fprintf(stderr, "Cannot get backtrace \n");
             break;
