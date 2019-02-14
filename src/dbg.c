@@ -16,8 +16,9 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <assert.h>
-#include "dbg.h"
+#include <stddef.h>
 #include <strings.h>
+#include "dbg.h"
 
 int buf_size = 256;
 
@@ -41,6 +42,7 @@ enum
     p_delete,
     p_signal,
     p_bt,
+    p_hw,
     p_quit
 };
 
@@ -59,6 +61,7 @@ char commands[][10] = {
     "delete",
     "signal",
     "backtrace",
+    "hardware",
     "quit"
 };
 
@@ -498,6 +501,72 @@ static int regs(char *buf, pid_t pid)
      * and print register values */
     return regs_value(pid, temp);
 
+}
+
+/* This function read user data at offset
+ * offset: offset to read  data  from
+ * word: content at the address addr */
+static int peek_user(uintptr_t offset, unsigned long *word, pid_t pid)
+{
+    errno = 0; /* clear errno before peeking */
+    *word = ptrace(PTRACE_PEEKUSER, pid, offset,
+                         NULL);
+    if(errno != 0)
+    {
+        fprintf(stderr, "peekdata failed : %s\n", strerror(errno));
+        return -1;
+    }
+
+    return 0;
+}
+/* Read alue from debug register.
+ * num: number of debug register 0 to 7
+ * pid: pid of the debuggee */
+static uintptr_t read_dr(int num, pid_t pid)
+{
+    unsigned long reg;
+    uintptr_t offset = offsetof(struct user, u_debugreg[num]);
+    peek_user(offset, &reg, pid);
+    return reg;
+}
+
+
+/* This function writes user data at offset
+ * offset: offset to read  data  from
+ * word: content at the address addr */
+static int poke_user(uintptr_t offset, unsigned long word, pid_t pid)
+{
+    errno = 0; /* clear errno before peeking */
+    int status  = ptrace(PTRACE_POKEUSER, pid, (void *)offset,
+                         word);
+    if(status == -1 && errno != 0)
+    {
+        fprintf(stderr, "peekdata failed : %s\n", strerror(errno));
+    }
+    return status;
+}
+
+/* Write a word to debug register.
+ * word: Value to be written.
+ * num: debug register number. */
+static int write_dr(unsigned long word, int num, pid_t pid)
+{
+    uintptr_t offset = offsetof(struct user, u_debugreg[num]);
+    if (poke_user(offset, word, pid) == -1)
+        return -1;
+
+    return 0;
+}
+
+/* write 0 to debug register.
+ * num: debug register number. */
+static int clear_dr(int num, pid_t pid)
+{
+    uintptr_t offset = offsetof(struct user, u_debugreg[num]);
+    if (poke_user(offset, 0x0, pid) == -1)
+        return -1;
+
+    return 0;
 }
 
 /* This function read data from address
@@ -943,6 +1012,56 @@ static void show()
     else
         printf("No breakpoint is set\n");
 }
+/*set hardware break point */
+static int set_hw_bp(uintptr_t addr, int num, pid_t pid)
+{
+    uintptr_t dr0; /* let's assume, we are just doing single breakpoint */
+    uintptr_t dr6; /* status of breakpoint */
+    uintptr_t dr7; /* Actual setting for breakpoints */
+    if(num == 0)
+        printf("First break point ");
+    /* for first break point bits to be set.
+     * 1:   L0
+     * 8:   LE
+     * 9:   GE
+     * 10:  reserved*/
+    dr7 = 0x701;
+    dr0 = addr;
+    if(write_dr(dr7, 7, pid) == -1)
+        return -1;
+    if(write_dr(dr0, 0, pid) == -1)
+        return -1;
+    dr0 = (uintptr_t)read_dr(0, pid);
+    printf("debug[0] = %lx\n", dr0);
+    dr6 = (uintptr_t)read_dr(6, pid);
+    printf("debug[6] = %lx\n", dr6);
+    dr7 = (uintptr_t)read_dr(7, pid);
+    printf("debug[7] = %lx\n", dr7);
+
+    return 0;
+}
+
+/* This function is called when user sends hardware command
+ * It obtains addr for break point
+ * Checks if breakpoint at this address is active
+ * sets breakpoint on user provided address */
+static int hw(char *buf, pid_t pid)
+{
+    uintptr_t addr = 0;
+    char *temp = strtok(NULL, " ");
+    if(temp == NULL)
+    {
+        show();
+        return 0;
+    }
+    addr = (uintptr_t)strtoul(temp, NULL, 16);
+    if(addr == 0 || errno != 0)
+        return -1;
+
+    if(set_hw_bp(addr, 0, pid) == -1)
+        return -1;
+    return 0;
+}
 
 /* This function is called when user sends breakpoint command
  * It obtains addr for break point
@@ -1002,6 +1121,7 @@ void help()
         "signal:    Set signal action to (pass) or (ignore)\n"
         "signal:    Show signal action \n"
         "backtrace: Show backtrace \n"
+        "hardware:  Set Hardware breakpoint at (address)\n"
         "quit:      Exit from debugger\n" ;
 
     printf("%s", help_str);
@@ -1247,6 +1367,16 @@ int dbg(int *exit, char *buf)
                 break;
             }
             if(bt(tracee_pid) == -1)
+                fprintf(stderr, "Cannot get backtrace \n");
+            break;
+
+        case p_hw:
+            if(tracee_pid == 0)
+            {
+                fprintf(stderr, "No debuggee found\n");
+                break;
+            }
+            if(hw(buf, tracee_pid) == -1)
                 fprintf(stderr, "Cannot get backtrace \n");
             break;
 
