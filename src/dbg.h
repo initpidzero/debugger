@@ -19,6 +19,13 @@ struct bp
               * 2 = breakpoint was hit and needs to be set again */
 };
 
+/* hardware breakpoint */
+struct hw_bp
+{
+    uintptr_t addr;/* addr at which hardware breakpoint is set */
+    int set; /* 0 hw bp is not set. 1 = hw bp is set */
+};
+
 struct sig_dis
 {
     int sig; /* signal recieved */

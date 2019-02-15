@@ -43,6 +43,7 @@ enum
     p_signal,
     p_bt,
     p_hw,
+    p_hw_rm,
     p_quit
 };
 
@@ -62,6 +63,7 @@ char commands[][10] = {
     "signal",
     "backtrace",
     "hardware",
+    "remove",
     "quit"
 };
 
@@ -95,6 +97,9 @@ char sregs[][8]  = {
 
 /* Breakpoint data structure */
 static struct bp bp;
+
+/* Hardware Breakpoint data structure */
+static struct hw_bp hw_bp;
 
 /* last signal recieved and associated action */
 struct sig_dis sig_dis;
@@ -1012,6 +1017,40 @@ static void show()
     else
         printf("No breakpoint is set\n");
 }
+
+/* remove hardware breakpoint */
+static int rm_hw_bp(pid_t pid, int num)
+{
+    /* set all debug registers to zero */
+    if(write_dr(0, num, pid) == -1)
+        return -1;
+    if(write_dr(0, 6, pid) == -1)
+        return -1;
+    if(write_dr(0, 7, pid) == -1)
+        return -1;
+}
+
+/* This function is called when user sends delete command
+ * It removes the break point or tells user if there is no
+ * breakpoints currently active */
+static int remove_hw(pid_t pid)
+{
+    if(hw_bp.set == 1)
+    {
+        hw_bp.set = 0;
+        rm_hw_bp(pid, 0);
+    }
+    else
+    {
+        printf("No harware breakpoint found\n");
+        return 0;
+    }
+    bzero(&hw_bp, sizeof(hw_bp));
+    printf("Hardware Breakpoint deleted\n");
+
+    return 0;
+}
+
 /*set hardware break point */
 static int set_hw_bp(uintptr_t addr, int num, pid_t pid)
 {
@@ -1026,10 +1065,11 @@ static int set_hw_bp(uintptr_t addr, int num, pid_t pid)
      * 9:   GE
      * 10:  reserved*/
     dr7 = 0x701;
-    dr0 = addr;
+    hw_bp.addr = addr;
+    hw_bp.set = 1;
     if(write_dr(dr7, 7, pid) == -1)
         return -1;
-    if(write_dr(dr0, 0, pid) == -1)
+    if(write_dr(hw_bp.addr, 0, pid) == -1)
         return -1;
     dr0 = (uintptr_t)read_dr(0, pid);
     printf("debug[0] = %lx\n", dr0);
@@ -1122,6 +1162,7 @@ void help()
         "signal:    Show signal action \n"
         "backtrace: Show backtrace \n"
         "hardware:  Set Hardware breakpoint at (address)\n"
+        "remove:    Delete Hardware breakpoint.\n"
         "quit:      Exit from debugger\n" ;
 
     printf("%s", help_str);
@@ -1378,6 +1419,11 @@ int dbg(int *exit, char *buf)
             }
             if(hw(buf, tracee_pid) == -1)
                 fprintf(stderr, "Cannot get backtrace \n");
+            break;
+
+        case p_hw_rm:
+            if(remove_hw(tracee_pid) == -1)
+                fprintf(stderr, "Cannot delete breakpoint \n");
             break;
 
         case p_quit:
