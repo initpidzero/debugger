@@ -146,35 +146,34 @@ static void add_sig(int sig)
         sig_dis.set = 1;
     }
 }
+
 /* get more information about SIGTRAP.
  * If this is TRAP_TRACE and TRAP_BRKPT
  * it is from debugee, else it is from user
  */
-
 static int get_siginfo(pid_t pid)
 {
     siginfo_t siginfo;
     ptrace(PTRACE_GETSIGINFO, pid, 0, &siginfo);
-    //printf("%d\n",siginfo.si_signo);
-    //printf("%d %d\n",siginfo.si_code, TRAP_BRKPT);
+    printf("siginfo = %d\n",siginfo.si_signo);
     if(siginfo.si_code == TRAP_BRKPT)
     {
-        printf("Break point\n");
+    //    printf("Break point\n");
         return 0;
     }
     if(siginfo.si_code == TRAP_TRACE)
     {
-        printf("Trace\n");
+      //  printf("Trace\n");
         return 0;
     }
     if(siginfo.si_code == SI_KERNEL)
     {
-        printf("Kernel\n");
+        //printf("Kernel\n");
         return 0;
     }
     if(siginfo.si_code == SI_USER)
     {
-        printf("User\n");
+        //printf("User\n");
         return siginfo.si_signo;
     }
     return siginfo.si_signo;
@@ -1075,6 +1074,8 @@ static int rm_hw_bp(pid_t pid, int num)
         return -1;
     if(write_dr(0, 7, pid) == -1)
         return -1;
+
+    hw_bp.set = 0;
 }
 
 /* This function is called when user sends delete command
@@ -1084,7 +1085,6 @@ static int remove_hw(pid_t pid)
 {
     if(hw_bp.set == 1)
     {
-        hw_bp.set = 0;
         rm_hw_bp(pid, 0);
     }
     else
@@ -1101,11 +1101,8 @@ static int remove_hw(pid_t pid)
 /*set hardware break point */
 static int set_hw_bp(uintptr_t addr, int num, pid_t pid)
 {
-    uintptr_t dr0; /* let's assume, we are just doing single breakpoint */
-    uintptr_t dr6; /* status of breakpoint */
     uintptr_t dr7; /* Actual setting for breakpoints */
-    if(num == 0)
-        printf("First break point ");
+
     /* for first break point bits to be set.
      * 1:   L0
      * 8:   LE
@@ -1113,6 +1110,7 @@ static int set_hw_bp(uintptr_t addr, int num, pid_t pid)
      * 10:  reserved
      * 11100000001*/
     dr7 = 0x701;
+
     hw_bp.addr = addr;
     if(write_dr(dr7, 7, pid) == -1)
         return -1;
@@ -1227,6 +1225,10 @@ static int pdetach(pid_t pid)
             return -1;
         bp.set = 0;
     }
+
+    /* remove any hardware breakpoints before leaving */
+    if(hw_bp.set == 1)
+        rm_hw_bp(pid, 0);
 
     if(detach(pid) == -1)
         return -1;
