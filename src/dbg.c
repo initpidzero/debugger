@@ -159,22 +159,22 @@ static int get_siginfo(pid_t pid)
     //printf("%d %d\n",siginfo.si_code, TRAP_BRKPT);
     if(siginfo.si_code == TRAP_BRKPT)
     {
-        //printf("Break point\n");
+        printf("Break point\n");
         return 0;
     }
     if(siginfo.si_code == TRAP_TRACE)
     {
-        //printf("Trace\n");
+        printf("Trace\n");
         return 0;
     }
     if(siginfo.si_code == SI_KERNEL)
     {
-        //printf("Trace\n");
+        printf("Kernel\n");
         return 0;
     }
     if(siginfo.si_code == SI_USER)
     {
-        //printf("Trace\n");
+        printf("User\n");
         return siginfo.si_signo;
     }
     return siginfo.si_signo;
@@ -294,7 +294,7 @@ static int segv_handle(pid_t pid)
 }
 
 /* This function calls ptrace with PTRACE_CONT */
-static int cont(pid_t pid)
+static int pcont(pid_t pid)
 {
     int sig = 0;
     /* check for pending signal */
@@ -315,6 +315,64 @@ static int cont(pid_t pid)
     if(sig_dis.set == 1 && sig_dis.act == 1)
         rm_sig();
     return status;
+}
+
+/* This function read user data at offset
+ * offset: offset to read  data  from
+ * word: content at the address addr */
+static int peek_user(uintptr_t offset, unsigned long *word, pid_t pid)
+{
+    errno = 0; /* clear errno before peeking */
+    *word = ptrace(PTRACE_PEEKUSER, pid, offset,
+                         NULL);
+    if(errno != 0)
+    {
+        fprintf(stderr, "peekdata failed : %s\n", strerror(errno));
+        return -1;
+    }
+
+    return 0;
+}
+
+/* Read value from debug register.
+ * num: number of debug register 0 to 7
+ * pid: pid of the debuggee */
+static uintptr_t read_dr(int num, pid_t pid)
+{
+    unsigned long reg;
+    uintptr_t offset = offsetof(struct user, u_debugreg[num]);
+    peek_user(offset, &reg, pid);
+    return reg;
+}
+
+/* Continue to handle hardware breakpoint.
+ * We only arrive in this function when hardware breakpoint is set.
+ * So there is no need to check if it was set or not.
+ * */
+static int cont_hw(pid_t pid)
+{
+    int sig;
+
+    /* call ptrace continue */
+    if(pcont(pid) == -1)
+    {
+        return -1;
+    }
+    sig = pwait(pid, 0);
+    /* wait for either a signal or exit from debuggee*/
+    if(sig == SIGTRAP)
+    {
+        uintptr_t dr0, dr6, dr7;
+        printf("Breakpoint hit at %lx\n", hw_bp.addr);
+        dr0 = (uintptr_t)read_dr(0, pid);
+        printf("debug[0] = %lx\n", dr0);
+        dr6 = (uintptr_t)read_dr(6, pid);
+        printf("debug[6] = %lx\n", dr6);
+        dr7 = (uintptr_t)read_dr(7, pid);
+        printf("debug[7] = %lx\n", dr7);
+    }
+
+    return 0;
 }
 
 /* This function gets user register data in regs for pid */
@@ -507,34 +565,6 @@ static int regs(char *buf, pid_t pid)
     return regs_value(pid, temp);
 
 }
-
-/* This function read user data at offset
- * offset: offset to read  data  from
- * word: content at the address addr */
-static int peek_user(uintptr_t offset, unsigned long *word, pid_t pid)
-{
-    errno = 0; /* clear errno before peeking */
-    *word = ptrace(PTRACE_PEEKUSER, pid, offset,
-                         NULL);
-    if(errno != 0)
-    {
-        fprintf(stderr, "peekdata failed : %s\n", strerror(errno));
-        return -1;
-    }
-
-    return 0;
-}
-/* Read alue from debug register.
- * num: number of debug register 0 to 7
- * pid: pid of the debuggee */
-static uintptr_t read_dr(int num, pid_t pid)
-{
-    unsigned long reg;
-    uintptr_t offset = offsetof(struct user, u_debugreg[num]);
-    peek_user(offset, &reg, pid);
-    return reg;
-}
-
 
 /* This function writes user data at offset
  * offset: offset to read  data  from
@@ -790,6 +820,7 @@ static int step_bp(pid_t pid)
     }
     return 0;
 }
+
 /* This function resumes execution flow when debuggee is stopped because
  * 1.Signal was recieved by debuggee
  * 2. breakpoint was hit
@@ -813,7 +844,7 @@ static int cont_bp(pid_t pid)
     }
 
     /* call ptrace continue */
-    if(cont(pid) == -1)
+    if(pcont(pid) == -1)
     {
         return -1;
     }
@@ -836,6 +867,22 @@ static int cont_bp(pid_t pid)
     }
 
     return 0;
+}
+
+/* This is main continue function.
+ * pid process id for debuggee
+ * Do we allow both software and hardware breakpoint at the same time?
+ * Let's assume here that only one type of breakpoint is set:
+ * Each of them have their own function.
+ */
+static int cont(pid_t pid)
+{
+
+    if(hw_bp.set == 1)
+        return cont_hw(pid);
+    else
+       return cont_bp(pid);
+
 }
 
 /* This function is called when user sends delete command
@@ -1063,21 +1110,19 @@ static int set_hw_bp(uintptr_t addr, int num, pid_t pid)
      * 1:   L0
      * 8:   LE
      * 9:   GE
-     * 10:  reserved*/
+     * 10:  reserved
+     * 11100000001*/
     dr7 = 0x701;
     hw_bp.addr = addr;
-    hw_bp.set = 1;
     if(write_dr(dr7, 7, pid) == -1)
         return -1;
     if(write_dr(hw_bp.addr, 0, pid) == -1)
         return -1;
-    dr0 = (uintptr_t)read_dr(0, pid);
-    printf("debug[0] = %lx\n", dr0);
-    dr6 = (uintptr_t)read_dr(6, pid);
-    printf("debug[6] = %lx\n", dr6);
-    dr7 = (uintptr_t)read_dr(7, pid);
-    printf("debug[7] = %lx\n", dr7);
 
+    /* writing dr is successful, let's update global hw bp variable. */
+    hw_bp.set = 1;
+
+    printf("Hardware breakpoint set at %lx\n", addr);
     return 0;
 }
 
@@ -1367,7 +1412,7 @@ int dbg(int *exit, char *buf)
                 fprintf(stderr, "No debuggee found\n");
                 break;
             }
-            if(cont_bp(tracee_pid) == -1)
+            if(cont(tracee_pid) == -1)
                 fprintf(stderr, "unable to continue\n");
             break;
 
