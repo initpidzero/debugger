@@ -1,8 +1,9 @@
-CFLAGS=-g 
+CFLAGS = -g 
 TARGET = dbg sigsegv sigill sigfpe sigalarm
+OBJS = src/commands.c
 all: $(TARGET)
 dbg: src/dbg.c
-	$(CC) $(CFLAGS) -o $@ $<
+	$(CC) $(CFLAGS) -o $@ $(OBJS) $<
 sigsegv: test/sigsegv.c
 	$(CC) $(CFLAGS) -o $@ $<
 sigill: test/sigill.c
