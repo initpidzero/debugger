@@ -20,7 +20,6 @@
 #include <strings.h>
 #include "dbg.h"
 
-int buf_size = 256;
 
 /* This is debuggee pid */
 static int tracee_pid =  0;
@@ -279,7 +278,7 @@ static int detach(pid_t pid)
 /* reset all entries in signal and breakpoint data structure */
 static void clear_ds()
 {
-    bzero(&bp,sizeof(bp));
+    bzero(&bp, sizeof(bp));
     rm_sig();
 }
 
@@ -1506,7 +1505,7 @@ int main (int argc, char **argv)
 {
     int exit = 1; /* The value is changed to zero when user calls quit command */
     char prompt[] = "(dbg):";
-    char buf[buf_size];
+    char buf[BUFSIZE];
 
     /* no debuggee at the beginning either */
     tracee_pid = 0;
@@ -1524,8 +1523,8 @@ int main (int argc, char **argv)
         if(write(STDOUT_FILENO, prompt, strlen(prompt) + 1) == -1)
             fprintf(stderr, "write failed : %s\n", strerror(errno));
 
-        bzero(buf, buf_size);
-        bytes_read = read(STDIN_FILENO, buf, buf_size);
+        bzero(buf, BUFSIZE);
+        bytes_read = read(STDIN_FILENO, buf, BUFSIZE);
         if(bytes_read == -1)
             fprintf(stderr, "read failed : %s\n", strerror(errno));
         assert(bytes_read > 0);

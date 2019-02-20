@@ -2,6 +2,7 @@
 #define __DBG_H__
 
 #define WORD 8
+#define BUFSIZE 256
 /* this function is main debugger api, it can used by passing commands in buf */
 int dbg(int *exit, char *buf);
 
