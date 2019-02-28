@@ -189,6 +189,7 @@ static int detach(pid_t pid)
     /* are there any pending signal */
     if (sig_dis.set == 1 && sig_dis.act == 1)
         sig = sig_dis.sig;
+
     int status = ptrace(PTRACE_DETACH, pid, 0 , sig);
     if (status == -1 && errno != 0) {
         fprintf(stderr, "detach failed : %s\n", strerror(errno));
@@ -391,6 +392,7 @@ static uintptr_t get_rip(pid_t pid)
         return 0;
     return (uintptr_t)regs.rip;
 }
+
 /* This function prints entire set of user registers one by one */
 void print_all_regs(struct user_regs_struct *regs)
 {

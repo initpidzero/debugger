@@ -9,12 +9,11 @@
 
 #define MAX_PAGES 20
 
-struct list heap_start;
-struct list *heap = NULL;
-size_t page_size = 0;
+static struct list heap_start;
+static struct list *heap = NULL;
+static size_t page_size = 0;
 
-struct map
-{
+struct map {
     uintptr_t *current; /* this current free location in map */
     size_t free;
 };
@@ -28,8 +27,7 @@ uintptr_t *page(uintptr_t *start)
     errno = 0;
     uintptr_t *map = mmap(start, page_size, PROT_READ | PROT_WRITE ,
                           MAP_ANONYMOUS | MAP_PRIVATE| MAP_FIXED, -1, 0);
-    if(map == MAP_FAILED || errno != 0)
-    {
+    if (map == MAP_FAILED || errno != 0) {
         fprintf(stderr, "Mmap error %s\n", strerror(errno));
         return NULL;
     }
@@ -51,8 +49,7 @@ int heap_init()
     errno = 0;
     map_start = mmap(NULL, page_size, PROT_READ | PROT_WRITE ,
                           MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-    if(map_start == MAP_FAILED || errno != 0)
-    {
+    if (map_start == MAP_FAILED || errno != 0) {
         fprintf(stderr, "Mmap error %s\n", strerror(errno));
         return -1;
     }
@@ -73,15 +70,15 @@ int add_page()
     static struct list list[MAX_PAGES];
     static int i = 0;
     uintptr_t *begin = heap->element + page_size;
-    if(i < MAX_PAGES) {
+    if (i < MAX_PAGES) {
         uintptr_t *map = page(begin);
         list_add_next(&heap, map, &list[i]);
         i++;
     //    printf("map next at %p \n",  heap->element);
         return 0;
-    }
-    else
+    } else {
         return -1;
+    }
 }
 
 /* 1. I want to have some sort of start index
@@ -141,14 +138,14 @@ void *get_mem(size_t size)
 
 void rm_mem(void *mem)
 {
+    /* we need a way to make memory unavailable for usage */
 }
 
 /* unmap all memory */
 void rm_all_map()
 {
     struct list *temp;
-    for(temp = heap->head; temp!= NULL; temp = temp->next)
-    {
+    for (temp = heap->head; temp!= NULL; temp = temp->next) {
         unpage(temp->element);
     }
 }

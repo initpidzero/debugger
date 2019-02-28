@@ -25,9 +25,8 @@ void list_add_next(struct list **list, void *element, struct list *new)
 void *find_element(struct list *list, void *element)
 {
     struct list *temp;
-    for(temp = list->head; temp!= NULL; temp = temp->next)
-    {
-        if(temp->element == element)
+    for(temp = list->head; temp!= NULL; temp = temp->next) {
+        if (temp->element == element)
             return temp;
     }
     return NULL;
