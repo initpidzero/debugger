@@ -79,8 +79,7 @@ static void unset_sig()
  * pass, we add signal to data sig_dis structure */
 static void add_sig(int sig)
 {
-    if (sig_dis.act == 1)
-    {
+    if (sig_dis.act == 1) {
         sig_dis.sig = sig;
         sig_dis.set = 1;
     }
@@ -95,23 +94,19 @@ static int get_siginfo(pid_t pid)
     siginfo_t siginfo;
     ptrace(PTRACE_GETSIGINFO, pid, 0, &siginfo);
     printf("siginfo = %d\n",siginfo.si_signo);
-    if (siginfo.si_code == TRAP_BRKPT)
-    {
+    if (siginfo.si_code == TRAP_BRKPT) {
     //    printf("Break point\n");
         return 0;
     }
-    if (siginfo.si_code == TRAP_TRACE)
-    {
+    if (siginfo.si_code == TRAP_TRACE) {
       //  printf("Trace\n");
         return 0;
     }
-    if (siginfo.si_code == SI_KERNEL)
-    {
+    if (siginfo.si_code == SI_KERNEL) {
         //printf("Kernel\n");
         return 0;
     }
-    if (siginfo.si_code == SI_USER)
-    {
+    if (siginfo.si_code == SI_USER) {
         //printf("User\n");
         return siginfo.si_signo;
     }
@@ -122,8 +117,7 @@ static int get_siginfo(pid_t pid)
  * signal action settings */
 static void set_sig(int sig)
 {
-    switch(sig)
-    {
+    switch(sig) {
         case 0:
             break;
         case SIGTRAP:
@@ -168,26 +162,19 @@ static int pwait(pid_t pid, int options)
     int sig = 0;
 
     waitpid(pid, &wstatus, options);
-    if (WIFEXITED(wstatus))
-    {
+    if (WIFEXITED(wstatus)) {
         printf("Debuggee exits with status %d\n", WEXITSTATUS(wstatus));
         /* debuggee has exited, reset tracee_pid */
         tracee_pid = 0;
-    }
-    else if (WIFSIGNALED(wstatus))
-    {
+    } else if (WIFSIGNALED(wstatus)) {
         sig = WTERMSIG(wstatus);
         printf("Debuggee killed by signal %d\n", sig);
         /* debuggee was killed, reset tracee_pid */
         tracee_pid = 0;
-    }
-    else if (WIFSTOPPED(wstatus))
-    {
+    } else if (WIFSTOPPED(wstatus)) {
         sig = WSTOPSIG(wstatus);
         set_sig(sig);
-    }
-    else if (WIFCONTINUED(wstatus))
-    {
+    } else if (WIFCONTINUED(wstatus)) {
         printf("Debuggee continues\n");
     }
 
@@ -203,8 +190,7 @@ static int detach(pid_t pid)
     if (sig_dis.set == 1 && sig_dis.act == 1)
         sig = sig_dis.sig;
     int status = ptrace(PTRACE_DETACH, pid, 0 , sig);
-    if (status == -1 && errno != 0)
-    {
+    if (status == -1 && errno != 0) {
         fprintf(stderr, "detach failed : %s\n", strerror(errno));
         return -1;
     }
@@ -212,6 +198,7 @@ static int detach(pid_t pid)
     /* we have sent the pending signal, remove them from queue */
     if (sig_dis.set == 1 && sig_dis.act == 1)
         rm_sig();
+
     return 0;
 }
 
@@ -236,16 +223,14 @@ static int pcont(pid_t pid)
 {
     int sig = 0;
     /* check for pending signal */
-    if (sig_dis.set == 1 && sig_dis.act == 1)
-    {
+    if (sig_dis.set == 1 && sig_dis.act == 1) {
         sig = sig_dis.sig;
         /* This cannot continue */
         if (sig == SIGSEGV)
            return segv_handle(pid);
     }
     int status = ptrace(PTRACE_CONT, pid, NULL, sig);
-    if (status == -1 && errno != 0)
-    {
+    if (status == -1 && errno != 0) {
         fprintf(stderr, "continue failed : %s\n", strerror(errno));
     }
 
@@ -263,8 +248,7 @@ static int peek_user(uintptr_t offset, unsigned long *word, pid_t pid)
     errno = 0; /* clear errno before peeking */
     *word = ptrace(PTRACE_PEEKUSER, pid, offset,
                          NULL);
-    if (errno != 0)
-    {
+    if (errno != 0) {
         fprintf(stderr, "peekdata failed : %s\n", strerror(errno));
         return -1;
     }
@@ -292,14 +276,12 @@ static int cont_hw(pid_t pid)
     int sig;
 
     /* call ptrace continue */
-    if (pcont(pid) == -1)
-    {
+    if (pcont(pid) == -1) {
         return -1;
     }
     sig = pwait(pid, 0);
     /* wait for either a signal or exit from debuggee*/
-    if (sig == SIGTRAP)
-    {
+    if (sig == SIGTRAP) {
         uintptr_t dr0, dr6, dr7;
         printf("Breakpoint hit at %lx\n", hw_bp.addr);
         dr0 = (uintptr_t)read_dr(0, pid);
@@ -318,8 +300,7 @@ static int set_regs(struct user_regs_struct *regs, pid_t pid)
 {
 
     int status = ptrace(PTRACE_SETREGS, pid, NULL, regs);
-    if (status == -1 && errno != 0)
-    {
+    if (status == -1 && errno != 0) {
         fprintf(stderr, "setreg failed : %s\n", strerror(errno));
     }
     return status;
@@ -329,104 +310,55 @@ static int set_regs(struct user_regs_struct *regs, pid_t pid)
  * reg: Register for which value needs to be printed */
 static void print_regs(struct user_regs_struct *regs, char *reg)
 {
-    if (strcmp(reg, "rax" ) == 0)
-    {
+    if (strcmp(reg, "rax" ) == 0) {
         printf("rax 	0x%llx\n", regs->rax);
-    }
-    else if (strcmp(reg, "rbx" ) == 0)
-    {
+    } else if (strcmp(reg, "rbx" ) == 0) {
         printf("rbx 	0x%llx\n", regs->rbx);
-    }
-    else if (strcmp(reg, "rcx" ) == 0)
-    {
+    } else if (strcmp(reg, "rcx" ) == 0) {
         printf("rcx 	0x%llx\n", regs->rcx);
-    }
-    else if (strcmp(reg, "rdx" ) == 0)
-    {
+    } else if (strcmp(reg, "rdx" ) == 0) {
         printf("rdx 	0x%llx\n", regs->rdx);
-    }
-    else if (strcmp(reg, "rsi" ) == 0)
-    {
+    } else if (strcmp(reg, "rsi" ) == 0) {
         printf("rsi 	0x%llx\n", regs->rsi);
-    }
-    else if (strcmp(reg, "rdi" ) == 0)
-    {
+    } else if (strcmp(reg, "rdi" ) == 0) {
         printf("rdi 	0x%llx\n", regs->rdi);
-    }
-    else if (strcmp(reg, "rbp" ) == 0)
-    {
+    } else if (strcmp(reg, "rbp" ) == 0) {
         printf("rpb 	0x%llx\n", regs->rbp);
-    }
-    else if (strcmp(reg, "rsp" ) == 0)
-    {
+    } else if (strcmp(reg, "rsp" ) == 0) {
         printf("rsp 	0x%llx\n", regs->rsp);
-    }
-    else if (strcmp(reg, "r8" ) == 0)
-    {
+    } else if (strcmp(reg, "r8" ) == 0) {
         printf("r8 	0x%llx\n", regs->r8);
-    }
-    else if (strcmp(reg, "r9" ) == 0)
-    {
+    } else if (strcmp(reg, "r9" ) == 0) {
         printf("r9 	0x%llx\n", regs->r9);
-    }
-    else if (strcmp(reg, "r10" ) == 0)
-    {
+    } else if (strcmp(reg, "r10" ) == 0) {
         printf("r10 	0x%llx\n", regs->r10);
-    }
-    else if (strcmp(reg, "r11" ) == 0)
-    {
+    } else if (strcmp(reg, "r11" ) == 0) {
         printf("r11 	0x%llx\n", regs->r11);
-    }
-    else if (strcmp(reg, "r12" ) == 0)
-    {
+    } else if (strcmp(reg, "r12" ) == 0) {
         printf("r12 	0x%llx\n", regs->r12);
-    }
-    else if (strcmp(reg, "r13" ) == 0)
-    {
+    } else if (strcmp(reg, "r13" ) == 0) {
         printf("r13 	0x%llx\n", regs->r13);
-    }
-    else if (strcmp(reg, "r14" ) == 0)
-    {
+    } else if (strcmp(reg, "r14" ) == 0) {
         printf("r14 	0x%llx\n", regs->r14);
-    }
-    else if (strcmp(reg, "r15" ) == 0)
-    {
+    } else if (strcmp(reg, "r15" ) == 0) {
         printf("r15 	0x%llx\n", regs->r15);
-    }
-    else if (strcmp(reg, "rip" ) == 0)
-    {
+    } else if (strcmp(reg, "rip" ) == 0) {
         printf("rip 	0x%llx\n", regs->rip);
-    }
-    else if (strcmp(reg, "eflags" ) == 0)
-    {
+    } else if (strcmp(reg, "eflags" ) == 0) {
         printf("eflags 	0x%llx\n", regs->eflags);
-    }
-    else if (strcmp(reg, "cs" ) == 0)
-    {
+    } else if (strcmp(reg, "cs" ) == 0) {
         printf("cs 	0x%llx\n", regs->cs);
-    }
-    else if (strcmp(reg, "ss" ) == 0)
-    {
+    } else if (strcmp(reg, "ss" ) == 0) {
         printf("ss 	0x%llx\n", regs->ss);
-    }
-    else if (strcmp(reg, "ds" ) == 0)
-    {
+    } else if (strcmp(reg, "ds" ) == 0) {
         printf("ds 	0x%llx\n", regs->ds);
-    }
-    else if (strcmp(reg, "es" ) == 0)
-    {
+    } else if (strcmp(reg, "es" ) == 0) {
         printf("es 	0x%llx\n", regs->es);
-    }
-    else if (strcmp(reg, "fs" ) == 0)
-    {
+    } else if (strcmp(reg, "fs" ) == 0) {
         printf("fs 	0x%llx\n", regs->fs);
-    }
-    else if (strcmp(reg, "gs" ) == 0)
-    {
+    } else if (strcmp(reg, "gs" ) == 0) {
         printf("fs 	0x%llx\n", regs->fs);
-    }
-    else
-    {
+    } else {
         printf("No such register %s\n", reg);
     }
 }
@@ -436,8 +368,7 @@ static void print_regs(struct user_regs_struct *regs, char *reg)
 static int get_regs(struct user_regs_struct *regs, pid_t pid)
 {
     int status = ptrace(PTRACE_GETREGS, pid, NULL, regs);
-    if (status == -1 && errno != 0)
-    {
+    if (status == -1 && errno != 0) {
         fprintf(stderr, "getreg failed : %s %d\n", strerror(errno), pid);
     }
     return status;
@@ -512,8 +443,7 @@ static int poke_user(uintptr_t offset, unsigned long word, pid_t pid)
     errno = 0; /* clear errno before peeking */
     int status  = ptrace(PTRACE_POKEUSER, pid, (void *)offset,
                          word);
-    if (status == -1 && errno != 0)
-    {
+    if (status == -1 && errno != 0) {
         fprintf(stderr, "peekdata failed : %s\n", strerror(errno));
     }
     return status;
@@ -550,8 +480,7 @@ static int peek_long(uintptr_t addr, unsigned long *word, pid_t pid)
     errno = 0; /* clear errno before peeking */
     *word = ptrace(PTRACE_PEEKDATA, pid, (void *)addr,
                          NULL);
-    if (errno != 0)
-    {
+    if (errno != 0) {
         fprintf(stderr, "peekdata failed : %s\n", strerror(errno));
         return -1;
     }
@@ -592,8 +521,7 @@ static int poke_long(uintptr_t addr, unsigned long word, pid_t pid)
     //printf("addr data = %p %lx\n", addr, word);
     int status  = ptrace(PTRACE_POKEDATA, pid, (void *)addr,
                          word);
-    if (status == -1 && errno != 0)
-    {
+    if (status == -1 && errno != 0) {
         fprintf(stderr, "peekdata failed : %s\n", strerror(errno));
     }
     return status;
@@ -689,8 +617,7 @@ static int step(pid_t pid)
 {
     int sig = 0;
     /* check for pending signal */
-    if (sig_dis.set == 1 && sig_dis.act == 1)
-    {
+    if (sig_dis.set == 1 && sig_dis.act == 1) {
         sig = sig_dis.sig;
         /* cannot continue after sigsegv */
         if (sig == SIGSEGV)
@@ -698,8 +625,7 @@ static int step(pid_t pid)
     }
 
     int status = ptrace(PTRACE_SINGLESTEP, pid, NULL, sig);
-    if (status == -1 && errno != 0)
-    {
+    if (status == -1 && errno != 0) {
         fprintf(stderr, "singlestep failed : %s\n", strerror(errno));
     }
 
@@ -716,8 +642,7 @@ static int step(pid_t pid)
  * either step or continue */
 static int resume_bp(pid_t pid)
 {
-    if (bp.set == 2)
-    {
+    if (bp.set == 2) {
         if (step(pid) == -1)
             return -1;
         pwait(pid, 0);
@@ -730,12 +655,9 @@ int step_bp(pid_t pid)
     uintptr_t rip = get_rip(pid);
 
     /* check if there was a pending breakpoint */
-    if (bp.set == 2)
-    {
+    if (bp.set == 2) {
         bp.set = 1;
-    }
-    else if (bp.set == 1 && bp.addr == rip)
-    {
+    } else if (bp.set == 1 && bp.addr == rip) {
             printf("Breakpoint hit at %lx\n", bp.addr);
             bp.set = 2;
             return 0;
@@ -746,13 +668,10 @@ int step_bp(pid_t pid)
     pwait(pid, 0);
 
     rip = get_rip(pid);
-    if (bp.set == 1 && bp.addr == rip)
-    {
+    if (bp.set == 1 && bp.addr == rip) {
         printf("Breakpoint hit at %lx\n", bp.addr);
         bp.set = 2;
-    }
-    else
-    {
+    } else {
         printf("Stepped\n");
         regs_value(pid, "rip");
     }
@@ -769,32 +688,27 @@ static int cont_bp(pid_t pid)
 
     /* check if there was a pending breakpoint */
     /*resuming from previous pending breakpoint, set it again */
-    if (bp.set == 2)
-    {
+    if (bp.set == 2) {
         if (resume_bp(pid) == -1)
             return -1;
         bp.set = 1;
     }
-    if (bp.set == 1)
-    {
+    if (bp.set == 1) {
         if (add_bp(&bp, pid) == -1)
            return -1;
     }
 
     /* call ptrace continue */
-    if (pcont(pid) == -1)
-    {
+    if (pcont(pid) == -1) {
         return -1;
     }
     sig = pwait(pid, 0);
     /* wait for either a signal or exit from debuggee*/
-    if (sig == SIGTRAP && bp.set == 1)
-    {
+    if (sig == SIGTRAP && bp.set == 1) {
         printf("Breakpoint hit at %lx\n", bp.addr);
          /* we reset all values back to what they were before hitting breakpoint
          * so next time any command that runs should set the breakpoint back */
-        if (unset_bp(&bp, pid) == -1)
-        {
+        if (unset_bp(&bp, pid) == -1) {
             printf("unset bp failed\n");
             return -1;
         }
@@ -828,16 +742,11 @@ int cont(pid_t pid)
  * breakpoints currently active */
 int delete(pid_t pid)
 {
-    if (bp.set == 1)
-    {
+    if (bp.set == 1) {
         bp.set = 0;
-    }
-    else if (bp.set == 2)
-    {
+    } else if (bp.set == 2) {
         bp.set = 0;
-    }
-    else
-    {
+    } else {
         printf("No breakpoint found\n");
         return 0;
     }
@@ -855,8 +764,7 @@ static int whereis_e8(uintptr_t word)
     uintptr_t e8 = 0xe8;
     int pos = 0;
     int i;
-    for (i = 0; i < 8; i++)
-    {
+    for (i = 0; i < 8; i++) {
         if (word & e8) {
             pos = i;
             break;
@@ -958,8 +866,7 @@ int bt(pid_t pid)
         return -1;
 
     /* we would want another condition besides i <2 ? */
-    for (int i = 0; i < 2; i++)
-    {
+    for (int i = 0; i < 2; i++) {
         if ( get_next_frame(&rbp, pid) == -1)
             return -1;
     }
@@ -972,21 +879,15 @@ int bt(pid_t pid)
 int p_sig(char *buf, pid_t pid)
 {
     char *temp = strtok(NULL, "\n");
-    if (temp == NULL)
-    {
+    if (temp == NULL) {
         printf("Current signal action: %s\n", sig_dis.act ? "pass" : "ignore");
         return 0;
     }
-    if (strcmp(temp, "ignore" ) == 0)
-    {
+    if (strcmp(temp, "ignore" ) == 0) {
         unset_sig();
-    }
-    else if (strcmp(temp, "pass" ) == 0)
-    {
+    } else if (strcmp(temp, "pass" ) == 0) {
         sig_dis.act = 1;
-    }
-    else
-    {
+    } else {
         return -1;
     }
 
@@ -1022,12 +923,9 @@ static int rm_hw_bp(pid_t pid, int num)
  * breakpoints currently active */
 int remove_hw(pid_t pid)
 {
-    if (hw_bp.set == 1)
-    {
+    if (hw_bp.set == 1) {
         rm_hw_bp(pid, 0);
-    }
-    else
-    {
+    } else {
         printf("No harware breakpoint found\n");
         return 0;
     }
@@ -1071,8 +969,7 @@ int hw(char *buf, pid_t pid)
 {
     uintptr_t addr = 0;
     char *temp = strtok(NULL, " ");
-    if (temp == NULL)
-    {
+    if (temp == NULL) {
         show();
         return 0;
     }
@@ -1093,8 +990,7 @@ int breakpoint(char *buf, pid_t pid)
 {
     uintptr_t addr = 0;
     char *temp = strtok(NULL, " ");
-    if (temp == NULL)
-    {
+    if (temp == NULL) {
         show();
         return 0;
     }
@@ -1103,10 +999,8 @@ int breakpoint(char *buf, pid_t pid)
     if (addr == 0 || errno != 0)
         return -1;
 
-    if (bp.set == 1 || bp.set == 2)
-    {
-        if (addr == bp.addr)
-        {
+    if (bp.set == 1 || bp.set == 2) {
+        if (addr == bp.addr) {
 
             printf("Breakpoint already set on this address\n");
             return 0;
@@ -1154,12 +1048,9 @@ void help()
 int pdetach(pid_t pid)
 {
     /* remove breakpoint data before detaching */
-    if (bp.set == 1)
-    {
+    if (bp.set == 1) {
         bp.set = 0;
-    }
-    else if (bp.set == 2)
-    {
+    } else if (bp.set == 2) {
         if (resume_bp(pid) == -1)
             return -1;
         bp.set = 0;
@@ -1182,8 +1073,7 @@ int pdetach(pid_t pid)
 int pattach(pid_t pid)
 {
     int status = ptrace(PTRACE_ATTACH, pid, 0 ,0);
-    if (status == -1 && errno != 0)
-    {
+    if (status == -1 && errno != 0) {
         fprintf(stderr, "attach failed : %s\n", strerror(errno));
         return -1;
     }
@@ -1200,8 +1090,7 @@ static int fork_exec(char *bin)
 {
     errno = 0;
     pid_t pid = fork();
-    if (pid == 0)
-    {
+    if (pid == 0) {
         char *argv[] = {bin, NULL};
         int status;
         /* child */
@@ -1210,20 +1099,15 @@ static int fork_exec(char *bin)
 
         errno = 0;
         status = execve(bin, argv, NULL);
-        if (status == -1 || errno != 0)
-        {
+        if (status == -1 || errno != 0) {
             fprintf(stderr, "execve error %s\n", strerror(errno));
             return -1;
         }
         /* good execve never returns */
-    }
-    else if (pid == -1)
-    {
+    } else if (pid == -1) {
         fprintf(stderr, "fork error %s\n", strerror(errno));
         return -1;
-    }
-    else
-    {
+    } else {
         /* parent */
         tracee_pid = pid;
         pwait(tracee_pid, 0);
@@ -1241,8 +1125,7 @@ int run(char *buf)
         return -1;
     errno = 0;
     int status = access(bin, R_OK | X_OK);
-    if (status == -1 || errno != 0)
-    {
+    if (status == -1 || errno != 0) {
         fprintf(stderr, "Access error %s\n", strerror(errno));
         return -1;
     }

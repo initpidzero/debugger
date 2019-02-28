@@ -11,8 +11,7 @@ int dbg(int *exit, char *buf);
 int tester_fn(int *exit, int argc, char **argv);
 
 /* this structure keeps track of breakpoint related data */
-struct bp
-{
+struct bp {
     uintptr_t addr; /* address where break point is set */
     unsigned long word; /* content at breakpoint address */
     unsigned long trap; /* replacement for trap instruction on address */
@@ -21,14 +20,12 @@ struct bp
 };
 
 /* hardware breakpoint */
-struct hw_bp
-{
+struct hw_bp {
     uintptr_t addr;/* addr at which hardware breakpoint is set */
     int set; /* 0 hw bp is not set. 1 = hw bp is set */
 };
 
-struct sig_dis
-{
+struct sig_dis {
     int sig; /* signal recieved */
     int set; /* whether of not we have a pending signal */
     int act; /* 0 = signal is ignore. 1 = signal is passed to debuggee. */
