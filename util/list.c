@@ -18,7 +18,7 @@ void list_add_next(struct list **list, void *element, struct list *new)
     new->head = (*list)->head;
     new->next = NULL;
     *list = new;
-    printf("list %p new %p %p\n", list, (*list)->prev, new);
+    printf("list %p list->prev %p new %p\n", list, (*list)->prev, new);
 }
 
 /* right so we want to find where in the list this element lies */

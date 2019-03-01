@@ -20,6 +20,8 @@
 #include <strings.h>
 #include "dbg.h"
 #include "commands.h"
+#include "util/list.h"
+#include "util/heap.h"
 
 /* This is debuggee pid */
 extern int tracee_pid;

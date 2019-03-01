@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdint.h>
-#include "list.h"
+#include "../util/list.h"
 #include "src/dbg.h"
 
 struct test

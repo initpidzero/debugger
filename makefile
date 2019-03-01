@@ -1,6 +1,7 @@
-CFLAGS = -g 
+INC = .
+CFLAGS = -g -I$(INC) 
 TARGET = dbg sigsegv sigill sigfpe sigalarm
-OBJS = src/commands.c
+OBJS = src/commands.c util/heap.c util/list.c
 all: $(TARGET)
 dbg: src/dbg.c
 	$(CC) $(CFLAGS) -o $@ $(OBJS) $<
