@@ -1,6 +1,8 @@
+/* A crude implementation of doubly linked list */
 #include <stdio.h>
 #include "list.h"
 
+/* initiate list with an element */
 void list_init(struct list *list, void *element)
 {
     list->element = element;

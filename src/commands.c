@@ -1,5 +1,7 @@
-/* This program should be able to use basic ptrace functionality of
- * attaching, detaching and writing to a process */
+/* This file contains helper function for debugger.
+ * Some helper functions are for attach, detach, run, breakpoints etc.
+ * Few function require basic parsing to get arguments.
+ * */
 
 #define _XOPEN_SOURCE 500 /* for TRACE_* */
 
@@ -55,7 +57,9 @@ char sregs[][8]  = {
 };
 
 /* Breakpoint data structure */
-static struct bp bp;
+static struct bp *bp;
+
+static struct list *bp_list;
 
 /* Hardware Breakpoint data structure */
 static struct hw_bp hw_bp;
@@ -208,7 +212,7 @@ static int detach(pid_t pid)
 /* reset all entries in signal and breakpoint data structure */
 static void clear_ds()
 {
-    bzero(&bp,sizeof(bp));
+    bzero(bp,sizeof(*bp));
     rm_sig();
 }
 
@@ -646,7 +650,7 @@ static int step(pid_t pid)
  * either step or continue */
 static int resume_bp(pid_t pid)
 {
-    if (bp.set == 2) {
+    if (bp->set == 2) {
         if (step(pid) == -1)
             return -1;
         pwait(pid, 0);
@@ -659,11 +663,11 @@ int step_bp(pid_t pid)
     uintptr_t rip = get_rip(pid);
 
     /* check if there was a pending breakpoint */
-    if (bp.set == 2) {
-        bp.set = 1;
-    } else if (bp.set == 1 && bp.addr == rip) {
-            printf("Breakpoint hit at %lx\n", bp.addr);
-            bp.set = 2;
+    if (bp->set == 2) {
+        bp->set = 1;
+    } else if (bp->set == 1 && bp->addr == rip) {
+            printf("Breakpoint hit at %lx\n", bp->addr);
+            bp->set = 2;
             return 0;
     }
 
@@ -672,9 +676,9 @@ int step_bp(pid_t pid)
     pwait(pid, 0);
 
     rip = get_rip(pid);
-    if (bp.set == 1 && bp.addr == rip) {
-        printf("Breakpoint hit at %lx\n", bp.addr);
-        bp.set = 2;
+    if (bp->set == 1 && bp->addr == rip) {
+        printf("Breakpoint hit at %lx\n", bp->addr);
+        bp->set = 2;
     } else {
         printf("Stepped\n");
         regs_value(pid, "rip");
@@ -692,13 +696,13 @@ static int cont_bp(pid_t pid)
 
     /* check if there was a pending breakpoint */
     /*resuming from previous pending breakpoint, set it again */
-    if (bp.set == 2) {
+    if (bp->set == 2) {
         if (resume_bp(pid) == -1)
             return -1;
-        bp.set = 1;
+        bp->set = 1;
     }
-    if (bp.set == 1) {
-        if (add_bp(&bp, pid) == -1)
+    if (bp->set == 1) {
+        if (add_bp(bp, pid) == -1)
            return -1;
     }
 
@@ -708,18 +712,18 @@ static int cont_bp(pid_t pid)
     }
     sig = pwait(pid, 0);
     /* wait for either a signal or exit from debuggee*/
-    if (sig == SIGTRAP && bp.set == 1) {
-        printf("Breakpoint hit at %lx\n", bp.addr);
+    if (sig == SIGTRAP && bp->set == 1) {
+        printf("Breakpoint hit at %lx\n", bp->addr);
          /* we reset all values back to what they were before hitting breakpoint
          * so next time any command that runs should set the breakpoint back */
-        if (unset_bp(&bp, pid) == -1) {
+        if (unset_bp(bp, pid) == -1) {
             printf("unset bp failed\n");
             return -1;
         }
 
         /* now we are in resume mode */
         /* there is a pending instruction which needs to be executed */
-        bp.set = 2;
+        bp->set = 2;
     }
 
     return 0;
@@ -746,15 +750,15 @@ int cont(pid_t pid)
  * breakpoints currently active */
 int delete(pid_t pid)
 {
-    if (bp.set == 1) {
-        bp.set = 0;
-    } else if (bp.set == 2) {
-        bp.set = 0;
+    if (bp->set == 1) {
+        bp->set = 0;
+    } else if (bp->set == 2) {
+        bp->set = 0;
     } else {
         printf("No breakpoint found\n");
         return 0;
     }
-    bzero(&bp, sizeof(bp));
+    bzero(bp, sizeof(*bp));
     printf("Breakpoint deleted\n");
 
     return 0;
@@ -902,8 +906,8 @@ int p_sig(char *buf, pid_t pid)
  */
 static void show()
 {
-    if (bp.set == 1 || bp.set == 2)
-        printf("Breakpoint set at %lx\n", bp.addr);
+    if (bp->set == 1 || bp->set == 2)
+        printf("Breakpoint set at %lx\n", bp->addr);
     else
         printf("No breakpoint is set\n");
 }
@@ -1003,8 +1007,8 @@ int breakpoint(char *buf, pid_t pid)
     if (addr == 0 || errno != 0)
         return -1;
 
-    if (bp.set == 1 || bp.set == 2) {
-        if (addr == bp.addr) {
+    if (bp->set == 1 || bp->set == 2) {
+        if (addr == bp->addr) {
 
             printf("Breakpoint already set on this address\n");
             return 0;
@@ -1013,12 +1017,12 @@ int breakpoint(char *buf, pid_t pid)
         return 0;
     }
 
-    bp.addr = addr;
+    bp->addr = addr;
 
-    if (set_bp(&bp, pid) == -1)
+    if (set_bp(bp, pid) == -1)
         return -1;
     else
-        printf("Breakpoint set at %lx\n", bp.addr);
+        printf("Breakpoint set at %lx\n", bp->addr);
 
     return 0;
 }
@@ -1052,12 +1056,12 @@ void help()
 int pdetach(pid_t pid)
 {
     /* remove breakpoint data before detaching */
-    if (bp.set == 1) {
-        bp.set = 0;
-    } else if (bp.set == 2) {
+    if (bp->set == 1) {
+        bp->set = 0;
+    } else if (bp->set == 2) {
         if (resume_bp(pid) == -1)
             return -1;
-        bp.set = 0;
+        bp->set = 0;
     }
 
     /* remove any hardware breakpoints before leaving */
@@ -1138,12 +1142,23 @@ int run(char *buf)
     return 0;
 }
 
+void exit_dbg()
+{
+    if(bp)
+        free(bp);
+    if(bp_list)
+        free(bp_list);
+}
+
 void init_dbg()
 {
     /* no debuggee at the beginning either */
     tracee_pid = 0;
     /* at the beginning no break point was set */
-    bp.set = 0;
+    bp = (struct bp *)malloc(sizeof(*bp));
+    bzero(bp, sizeof(*bp));
+    bp_list = (struct list *)malloc(sizeof(*bp_list));
+    list_init(bp_list, bp);
     /* at the beginning no break point was set */
     hw_bp.set = 0;
 }

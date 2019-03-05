@@ -1,5 +1,7 @@
 /* This program should be able to use basic ptrace functionality of
- * attaching, detaching and writing to a process */
+ * attaching, detaching and writing to a process. This is the main file for main
+ * function, tester function and command loop and some parsing.
+ * */
 
 #define _XOPEN_SOURCE 500 /* for TRACE_* */
 
@@ -268,7 +270,7 @@ int main (int argc, char **argv)
     int exit = 1; /* The value is changed to zero when user calls quit command */
     char prompt[] = "(dbg):";
     char buf[BUFSIZE];
-    
+
     init_dbg();
     /* this is to carry out testing */
     if (argc > 1)
