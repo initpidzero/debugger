@@ -745,13 +745,14 @@ static int cont_bp(pid_t pid)
 {
     int sig;
     struct list *temp = NULL;
+    struct bp *bp = NULL;
     if(bp_list)
         temp = bp_list->head;
     /* check if there was a pending breakpoint */
     /*resuming from previous pending breakpoint, set it again */
     for (; temp; temp = temp->next)
     {
-        struct bp *bp = (struct bp *)temp->element;
+        bp = (struct bp *)temp->element;
 
         if (bp->set == 2) {
             if (resume_bp(bp, pid) == -1)
@@ -771,7 +772,7 @@ static int cont_bp(pid_t pid)
     /* wait for either a signal or exit from debuggee*/
     if (sig == SIGTRAP) {
         uintptr_t rip = get_rip(pid);
-        struct bp *bp = NULL;
+        bp = NULL;
         rip = rip - 1;
         bp = get_bp_from_list(rip);
         if (bp != NULL && bp->set == 1) {
@@ -788,6 +789,21 @@ static int cont_bp(pid_t pid)
             bp->set = 2;
         }
     }
+
+    /* we are reusing the list variable */
+    temp = NULL;
+    if(bp_list)
+        temp = bp_list->head;
+    /* stupid overhead to make sure every set breakpoint is removed */
+    for (; temp; temp = temp->next) {
+        bp = (struct bp *)temp->element;
+        if (bp->set == 1) {
+            /* remove breakpoint */
+            if (rm_bp(bp, pid) == -1)
+                return -1;
+        }
+    }
+
     return 0;
 }
 
