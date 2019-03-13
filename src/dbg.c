@@ -204,7 +204,7 @@ int dbg(int *exit, char *buf)
             break;
 
         case p_delete:
-            if (delete(tracee_pid) == -1)
+            if (delete(buf, tracee_pid) == -1)
                 fprintf(stderr, "Cannot delete breakpoint \n");
             break;
 

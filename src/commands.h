@@ -36,7 +36,7 @@ int bt(pid_t pid);
 /* This function is called when user sends delete command
  * It removes the break point or tells user if there is no
  * breakpoints currently active */
-int delete(pid_t pid);
+int delete(char *buf, pid_t pid);
 
 /* This is main continue function.
  * pid process id for debuggee
