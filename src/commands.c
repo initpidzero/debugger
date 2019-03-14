@@ -1282,8 +1282,33 @@ int run(char *buf)
     return 0;
 }
 
+static void
+int_handler(int sig, siginfo_t *siginfo, void *ucontext)
+{
+    if (sig == SIGINT)
+        printf("Debugger interrupted\n");
+    else
+        printf("This shouldn't be happening\n");
+}
+
+/* let's register signal handler for debugger
+ * especially SIGINT */
+static void reg_signals()
+{
+    sigset_t mask;
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGINT);
+    const struct sigaction act = {
+        .sa_sigaction = int_handler,
+        .sa_mask = mask,
+        .sa_flags = 0,
+    };
+    sigaction(SIGINT, &act, 0);
+}
+
 void init_dbg()
 {
+    reg_signals();
     /* no debuggee at the beginning either */
     tracee_pid = 0;
     /* at the beginning no hardware break point was set */
