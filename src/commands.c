@@ -56,9 +56,7 @@ char sregs[][8]  = {
 "gs"
 };
 
-/* Breakpoint data structure */
-//static struct bp *bp = NULL;
-
+/* breakpoint data structure list */
 static struct list *bp_list = NULL;
 
 /* Hardware Breakpoint data structure */
@@ -209,11 +207,26 @@ static int detach(pid_t pid)
     return 0;
 }
 
+/* Free all breakpoint structures in the list */
+static void rm_all_bp(void)
+{
+    if (bp_list) {
+        struct list *temp = bp_list->head;
+        while (temp) {
+            struct list *next = temp->next;
+            free(temp->element);
+            temp->element = NULL;
+            free(temp);
+            temp = NULL;
+            temp = next;
+        }
+    }
+    bp_list = NULL;
+}
+
 /* reset all entries in signal and breakpoint data structure */
 static void clear_ds()
 {
-    //if(bp)
-      //  bzero(bp, sizeof(*bp));
     rm_sig();
 }
 
@@ -615,7 +628,7 @@ static int rm_bp(struct bp *bp, pid_t pid)
 {
     if (poke_long(bp->addr, bp->word, pid) == -1)
         return -1;
-    bp->set = 0;
+    //bp->set = 0;
 }
 
  /*This function restores the value which was overwritten
@@ -783,7 +796,6 @@ static int cont_bp(pid_t pid)
                 printf("unset bp failed\n");
                 return -1;
             }
-
             /* now we are in resume mode */
             /* there is a pending instruction which needs to be executed */
             bp->set = 2;
@@ -827,9 +839,11 @@ int cont(pid_t pid)
 int delete(char *buf, pid_t pid)
 {
     uintptr_t addr = 0;
-    char *temp = strtok(NULL, " ");
     struct bp *bp = NULL;
+    char *temp = strtok(NULL, " ");
     if (temp == NULL) {
+        rm_all_bp();
+        printf("All breakpoints removed\n");
         return 0;
     }
 
@@ -1000,6 +1014,11 @@ int p_sig(char *buf, pid_t pid)
 static void show()
 {
     struct bp *bp = NULL;
+    if (hw_bp.set == 1) {
+            printf("Breakpoint set at %lx\n", hw_bp.addr);
+            return;
+    }
+
     if (!bp_list) {
         printf("No breakpoint is set\n");
         return;
@@ -1076,6 +1095,10 @@ static int set_hw_bp(uintptr_t addr, int num, pid_t pid)
 int hw(char *buf, pid_t pid)
 {
     uintptr_t addr = 0;
+    if (bp_list) {
+        printf("Software breakpoints are in use\n");
+        return 0;
+    }
     char *temp = strtok(NULL, " ");
     if (temp == NULL) {
         show();
@@ -1097,6 +1120,10 @@ int hw(char *buf, pid_t pid)
 int breakpoint(char *buf, pid_t pid)
 {
     uintptr_t addr = 0;
+    if (hw_bp.set == 1) {
+        printf("Hardware breakpoints are in use\n");
+        return 0;
+    }
     char *temp = strtok(NULL, " ");
     struct bp *bp = NULL;
     if (temp == NULL) {
@@ -1154,24 +1181,10 @@ void help()
     printf("%s", help_str);
 }
 
-void exit_dbg()
+void exit_dbg(void)
 {
-    if (bp_list) {
-        struct list *temp = bp_list->head;
-        while (temp) {
-            struct list *next = temp->next;
-            free(temp->element);
-            temp->element = NULL;
-            free(temp);
-            temp = NULL;
-            temp = next;
-        }
-    }
 
-    //if (bp)
-      //  free(bp);
-    //bp = NULL;
-    bp_list = NULL;
+    rm_all_bp();
     clear_ds();
     tracee_pid = 0;
 }
