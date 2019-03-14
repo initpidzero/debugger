@@ -902,7 +902,6 @@ static long long find_offset(int shift, uintptr_t word)
    // printf("offset = %ld %lx %d\n", offset, mask, shift);
 
     return offset;
-
 }
 
 /* Find the address address of function which was called.
@@ -1171,6 +1170,7 @@ void help()
         "continue:  Continue \n"
         "break:     Set break point at (addr)\n"
         "break:     Show all breakpoints\n"
+        "delete:    Delete breakpoint at (addr)\n"
         "signal:    Set signal action to (pass) or (ignore)\n"
         "signal:    Show signal action \n"
         "backtrace: Show backtrace \n"
@@ -1183,7 +1183,6 @@ void help()
 
 void exit_dbg(void)
 {
-
     rm_all_bp();
     clear_ds();
     tracee_pid = 0;
@@ -1287,9 +1286,6 @@ void init_dbg()
 {
     /* no debuggee at the beginning either */
     tracee_pid = 0;
-    /* at the beginning no break point was set */
-//    bp = (struct bp *)malloc(sizeof(*bp));
-  //  bzero(bp, sizeof(*bp));
-    /* at the beginning no break point was set */
+    /* at the beginning no hardware break point was set */
     hw_bp.set = 0;
 }
