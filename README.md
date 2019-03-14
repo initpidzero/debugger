@@ -12,4 +12,6 @@ Commands currently supported.
 10. Continue
 10. Run  
 11. Backtrace
-12. Quit
+12. Hardware breakpoint 
+13. Delete breakpoints.
+14. Quit
