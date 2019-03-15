@@ -1,8 +1,10 @@
 #ifndef __DBG_HELPER_H__
 #define __DBG_HELPER_H__
 
+/* spawn the binary with debugger */
 int run(char *buf);
 
+/* attach the process with pid */
 int pattach(pid_t pid);
 
 /* prints help */
@@ -70,4 +72,5 @@ int pdetach(pid_t pid);
 
 /* initialise some variables */
 void init_dbg();
+
 #endif

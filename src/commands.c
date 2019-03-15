@@ -1294,7 +1294,7 @@ int_handler(int sig, siginfo_t *siginfo, void *ucontext)
     if (sig == SIGINT)
         printf("Debugger interrupted\n");
     else
-        printf("This shouldn't be happening\n");
+        fprintf(stderr, "This shouldn't be happening\n");
 }
 
 /* let's register signal handler for debugger
