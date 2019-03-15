@@ -17,12 +17,14 @@ struct bp {
     unsigned long trap; /* replacement for trap instruction on address */
     int set; /* 0 = bp is not set. 1 = bp is set.
               * 2 = breakpoint was hit and needs to be set again */
+    int num; /* nth breakpoint in the series */
 };
 
 /* hardware breakpoint */
 struct hw_bp {
     uintptr_t addr;/* addr at which hardware breakpoint is set */
     int set; /* 0 hw bp is not set. 1 = hw bp is set */
+    int num; /* nth hw breakpoint, maximum 4 */
 };
 
 struct sig_dis {

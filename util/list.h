@@ -10,6 +10,9 @@ struct list {
 /* initiate list with element */
 void list_init(struct list *list, void *element);
 
+/* get number of elements in this list */
+unsigned int get_num_members(struct list *list);
+
 /* add another member to the list, "new" with value as "element" */
 void list_add_next(struct list **list, void *element, struct list *new);
 

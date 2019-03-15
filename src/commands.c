@@ -481,10 +481,13 @@ static struct bp *get_bp_from_list(uintptr_t addr)
 static struct bp *get_bp_ds(uintptr_t addr)
 {
     struct bp *bp = NULL;
+    static unsigned int num_bp = 0;
     if (!bp_list) {
         /* at the beginning no break point was set */
         bp = (struct bp *)malloc(sizeof(*bp));
         bzero(bp, sizeof(*bp));
+        num_bp++;
+        bp->num = num_bp;
         bp_list = (struct list *)malloc(sizeof(*bp_list));
         list_init(bp_list, bp);
         return bp;
@@ -496,7 +499,10 @@ static struct bp *get_bp_ds(uintptr_t addr)
         struct list *temp = (struct list *)malloc(sizeof(*bp_list));
         bp = (struct bp *)malloc(sizeof(*bp));
         bzero(bp, sizeof(*bp));
+        num_bp++;
+        bp->num = num_bp;
         list_add_next(&bp_list, bp, temp);
+        assert(num_bp == get_num_members(bp_list));
         return bp;
     }
 }
@@ -1014,7 +1020,7 @@ static void show()
 {
     struct bp *bp = NULL;
     if (hw_bp.set == 1) {
-            printf("Breakpoint set at %lx\n", hw_bp.addr);
+            printf("Hardware breakpoint set at %lx\n", hw_bp.addr);
             return;
     }
 
@@ -1026,7 +1032,7 @@ static void show()
     for (; temp; temp = temp->next) {
         struct bp *bp = (struct bp *)temp->element;
         if (bp->set == 1 || bp->set == 2)
-            printf("Breakpoint set at %lx\n", bp->addr);
+            printf("Breakpoint %d set at %lx\n",bp->num, bp->addr);
     }
 }
 
@@ -1150,7 +1156,7 @@ int breakpoint(char *buf, pid_t pid)
     if (set_bp(bp, pid) == -1)
         return -1;
     else
-        printf("Breakpoint set at %lx\n", bp->addr);
+        printf("Breakpoint %d set at %lx\n",bp->num, bp->addr);
 
     return 0;
 }
