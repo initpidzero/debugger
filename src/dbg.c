@@ -45,6 +45,7 @@ enum {
     p_bt,
     p_hw,
     p_hw_rm,
+    p_watch,
     p_quit
 };
 
@@ -65,6 +66,7 @@ char commands[][10] = {
     "backtrace",
     "hardware",
     "remove",
+    "watch",
     "quit"
 };
 
@@ -228,7 +230,16 @@ int dbg(int *exit, char *buf)
                 break;
             }
             if (hw(buf, tracee_pid) == -1)
-                fprintf(stderr, "Cannot get backtrace \n");
+                fprintf(stderr, "Cannot set hardware breakpoint \n");
+            break;
+
+        case p_watch:
+            if (tracee_pid == 0) {
+                fprintf(stderr, "No debuggee found\n");
+                break;
+            }
+            if (watch(buf, tracee_pid) == -1)
+                fprintf(stderr, "Cannot set watchpoint \n");
             break;
 
         case p_hw_rm:

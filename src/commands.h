@@ -73,4 +73,10 @@ int pdetach(pid_t pid);
 /* initialise some variables */
 void init_dbg();
 
+/* This function is called when user sends watch command
+ * It obtains addr for watchpoint
+ * Checks if breakpoints(hw or sw) are set
+ * sets watchpoint on a give addr for a particular value */
+int watch(char *buf, pid_t pid);
+
 #endif

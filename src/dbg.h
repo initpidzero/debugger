@@ -27,6 +27,14 @@ struct hw_bp {
     int num; /* nth hw breakpoint, maximum 4 */
 };
 
+/* Watchpoint */
+struct wp {
+    uintptr_t addr;/* addr at which watchpoint is set */
+    long value;/* value for watchpoint variable. */
+    int set; /* 0 = wp is not set. 1 = wp is set */
+    int num; /* nth watchpoint, maximum 4 */
+};
+
 struct sig_dis {
     int sig; /* signal recieved */
     int set; /* whether of not we have a pending signal */

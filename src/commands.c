@@ -62,6 +62,9 @@ static struct list *bp_list = NULL;
 /* Hardware Breakpoint data structure */
 static struct hw_bp hw_bp;
 
+/* Hardware Breakpoint data structure */
+static struct wp wp;
+
 /* last signal recieved and associated action */
 struct sig_dis sig_dis;
 
@@ -239,6 +242,22 @@ static int segv_handle(pid_t pid)
     return 0;
 }
 
+/* This function read data from address
+ * addr: address to which data should be read from
+ * word: content at the address addr */
+static int peek_long(uintptr_t addr, unsigned long *word, pid_t pid)
+{
+    errno = 0; /* clear errno before peeking */
+    *word = ptrace(PTRACE_PEEKDATA, pid, (void *)addr,
+                         NULL);
+    if (errno != 0) {
+        fprintf(stderr, "peekdata failed : %s\n", strerror(errno));
+        return -1;
+    }
+
+    return 0;
+}
+
 /* This function calls ptrace with PTRACE_CONT */
 static int pcont(pid_t pid)
 {
@@ -286,6 +305,40 @@ static uintptr_t read_dr(int num, pid_t pid)
     uintptr_t offset = offsetof(struct user, u_debugreg[num]);
     peek_user(offset, &reg, pid);
     return reg;
+}
+
+static int cont_wp(pid_t pid)
+{
+    int sig;
+    uintptr_t dr0, dr6, dr7;
+
+    while(1)
+    {
+        if (pcont(pid) == -1) {
+            return -1;
+        }
+        sig = pwait(pid, 0);
+        /* wait for either a signal or exit from debuggee*/
+        if (sig == SIGTRAP) {
+            unsigned long word;
+            if (peek_long(wp.addr, &word, pid) == -1)
+                return -1;
+            if(wp.value == word)
+                break;
+            else
+                continue;
+        }
+    }
+
+    printf("Watchpoint hit at %lx with value %lx\n", wp.addr, wp.value);
+    dr0 = (uintptr_t)read_dr(0, pid);
+    printf("debug[0] = %lx\n", dr0);
+    dr6 = (uintptr_t)read_dr(6, pid);
+    printf("debug[6] = %lx\n", dr6);
+    dr7 = (uintptr_t)read_dr(7, pid);
+    printf("debug[7] = %lx\n", dr7);
+
+    return 0;
 }
 
 /* Continue to handle hardware breakpoint.
@@ -540,22 +593,6 @@ static int clear_dr(int num, pid_t pid)
     uintptr_t offset = offsetof(struct user, u_debugreg[num]);
     if (poke_user(offset, 0x0, pid) == -1)
         return -1;
-
-    return 0;
-}
-
-/* This function read data from address
- * addr: address to which data should be read from
- * word: content at the address addr */
-static int peek_long(uintptr_t addr, unsigned long *word, pid_t pid)
-{
-    errno = 0; /* clear errno before peeking */
-    *word = ptrace(PTRACE_PEEKDATA, pid, (void *)addr,
-                         NULL);
-    if (errno != 0) {
-        fprintf(stderr, "peekdata failed : %s\n", strerror(errno));
-        return -1;
-    }
 
     return 0;
 }
@@ -835,6 +872,8 @@ int cont(pid_t pid)
 {
     if (hw_bp.set == 1)
         return cont_hw(pid);
+    else if (wp.set == 1)
+        return cont_wp(pid);
     else
        return cont_bp(pid);
 }
@@ -1118,6 +1157,65 @@ int hw(char *buf, pid_t pid)
     return 0;
 }
 
+/* so the actual work happens here */
+static int set_wp(uintptr_t addr, long value, pid_t pid)
+{
+    uintptr_t dr7; /* Actual setting for watchpoint */
+
+    /* for first watchpoint bits to be set.
+     * 1:       L0
+     * 9:       LE
+     * 10:      GE
+     * 11:      reserved
+     * 17-18:   RW0
+     * 19-20:   LEN0
+     * 11010000011100000001*/
+    dr7 = 0xD0701;
+
+    if (write_dr(dr7, 7, pid) == -1)
+        return -1;
+    if (write_dr(addr, 0, pid) == -1)
+        return -1;
+
+    wp.set = 1;
+    wp.addr = addr;
+    wp.value = value;
+    wp.num = 1;
+
+    printf("Watchpoint set at %lx\n", addr);
+
+    /* so we need to add write monitor and read 4 bytes */
+    return 0;
+}
+
+/* This function is called when user calls watch command.
+ * It parses arguments for watch command to find which address
+ * value user want to watch at and what value user want at this address. */
+int watch(char *buf, pid_t pid)
+{
+    uintptr_t addr;
+    long word; /* so the value could be signed or unsigned. */
+
+    char *temp = strtok(NULL, " ");
+    if (temp == NULL)
+        return -1;
+
+    addr  = (uintptr_t)strtoul(temp, NULL, 16);
+    if (addr == 0 || errno != 0)
+        return -1;
+
+    temp = strtok(NULL, " \n");
+    if (temp == NULL)
+        return -1;
+
+    errno = 0;
+    word = strtol(temp, NULL, 16);
+    if (errno != 0)
+        return -1;
+
+    return set_wp(addr, word, pid);
+}
+
 /* This function is called when user sends breakpoint command
  * It obtains addr for break point
  * Checks if breakpoint at this address is active
@@ -1182,6 +1280,7 @@ void help()
         "backtrace: Show backtrace \n"
         "hardware:  Set Hardware breakpoint at (address)\n"
         "remove:    Delete Hardware breakpoint.\n"
+        "watch:     Set watchpoint at (addr) for (value).\n"
         "quit:      Exit from debugger\n" ;
 
     printf("%s", help_str);
