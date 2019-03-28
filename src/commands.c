@@ -1058,20 +1058,31 @@ int p_sig(char *buf, pid_t pid)
     return 0;
 }
 
-/* This function tells user if there are any breakpoints
- */
-static void show()
+/*  show watchpoint */
+static void show_wp()
 {
-    struct bp *bp = NULL;
-    if (hw_bp.set == 1) {
-            printf("Hardware breakpoint set at %lx\n", hw_bp.addr);
-            return;
-    }
-
     if (wp.set == 1) {
             printf("Watchpoint set at %lx\n", wp.addr);
             return;
     }
+    printf("No watchpoint is set\n");
+}
+
+/* show hardware breakpoints*/
+static void show_hw()
+{
+    if (hw_bp.set == 1) {
+            printf("Hardware breakpoint set at %lx\n", hw_bp.addr);
+            return;
+    }
+    printf("No breakpoint is set\n");
+}
+
+/* This function tells user if there are any breakpoints
+ */
+static void show_bp()
+{
+    struct bp *bp = NULL;
 
     if (!bp_list) {
         printf("No breakpoint is set\n");
@@ -1161,7 +1172,7 @@ int hw(char *buf, pid_t pid)
 
     char *temp = strtok(NULL, " ");
     if (temp == NULL) {
-        show();
+        show_hw();
         return 0;
     }
     addr = (uintptr_t)strtoul(temp, NULL, 16);
@@ -1226,7 +1237,7 @@ int watch(char *buf, pid_t pid)
 
     char *temp = strtok(NULL, " ");
     if (temp == NULL) {
-        show();
+        show_wp();
         return 0;
     }
 
@@ -1268,7 +1279,7 @@ int breakpoint(char *buf, pid_t pid)
     char *temp = strtok(NULL, " ");
     struct bp *bp = NULL;
     if (temp == NULL) {
-        show();
+        show_bp();
         return 0;
     }
 
