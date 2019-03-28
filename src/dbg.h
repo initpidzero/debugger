@@ -33,6 +33,7 @@ struct wp {
     long value;/* value for watchpoint variable. */
     int set; /* 0 = wp is not set. 1 = wp is set */
     int num; /* nth watchpoint, maximum 4 */
+    int no_value; /* so this variable is set if there is no value to be watched for */
 };
 
 struct sig_dis {

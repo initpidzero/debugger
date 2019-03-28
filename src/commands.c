@@ -62,7 +62,7 @@ static struct list *bp_list = NULL;
 /* Hardware Breakpoint data structure */
 static struct hw_bp hw_bp;
 
-/* Hardware Breakpoint data structure */
+/* Watchpoint data structure */
 static struct wp wp;
 
 /* last signal recieved and associated action */
@@ -312,7 +312,7 @@ static int cont_wp(pid_t pid)
     int sig;
     uintptr_t dr0, dr6, dr7;
 
-    while(1)
+    while (1)
     {
         if (pcont(pid) == -1) {
             return -1;
@@ -321,16 +321,21 @@ static int cont_wp(pid_t pid)
         /* wait for either a signal or exit from debuggee*/
         if (sig == SIGTRAP) {
             unsigned long word;
+            if (wp.no_value) {
+                printf("Watchpoint hit at %lx\n", wp.addr);
+                break;
+            }
+
             if (peek_long(wp.addr, &word, pid) == -1)
                 return -1;
-            if(wp.value == word)
+            if (wp.value == word) {
+                printf("Watchpoint hit at %lx with value %lx\n", wp.addr, wp.value);
                 break;
-            else
+            } else
                 continue;
         }
     }
 
-    printf("Watchpoint hit at %lx with value %lx\n", wp.addr, wp.value);
     dr0 = (uintptr_t)read_dr(0, pid);
     printf("debug[0] = %lx\n", dr0);
     dr6 = (uintptr_t)read_dr(6, pid);
@@ -1063,6 +1068,11 @@ static void show()
             return;
     }
 
+    if (wp.set == 1) {
+            printf("Watchpoint set at %lx\n", wp.addr);
+            return;
+    }
+
     if (!bp_list) {
         printf("No breakpoint is set\n");
         return;
@@ -1143,6 +1153,12 @@ int hw(char *buf, pid_t pid)
         printf("Software breakpoints are in use\n");
         return 0;
     }
+
+    if (wp.set == 1) {
+        printf("Watchpoints are in use\n");
+        return 0;
+    }
+
     char *temp = strtok(NULL, " ");
     if (temp == NULL) {
         show();
@@ -1158,7 +1174,7 @@ int hw(char *buf, pid_t pid)
 }
 
 /* so the actual work happens here */
-static int set_wp(uintptr_t addr, long value, pid_t pid)
+static int set_wp(uintptr_t addr, long value, int no_value, pid_t pid)
 {
     uintptr_t dr7; /* Actual setting for watchpoint */
 
@@ -1178,6 +1194,7 @@ static int set_wp(uintptr_t addr, long value, pid_t pid)
         return -1;
 
     wp.set = 1;
+    wp.no_value = no_value;
     wp.addr = addr;
     wp.value = value;
     wp.num = 1;
@@ -1195,25 +1212,40 @@ int watch(char *buf, pid_t pid)
 {
     uintptr_t addr;
     long word; /* so the value could be signed or unsigned. */
+    int no_value = 0;
+
+    if (bp_list) {
+        printf("Software breakpoints are in use\n");
+        return 0;
+    }
+
+    if (hw_bp.set == 1) {
+        printf("Hardware breakpoints are in use\n");
+        return 0;
+    }
 
     char *temp = strtok(NULL, " ");
-    if (temp == NULL)
-        return -1;
+    if (temp == NULL) {
+        show();
+        return 0;
+    }
 
     addr  = (uintptr_t)strtoul(temp, NULL, 16);
     if (addr == 0 || errno != 0)
         return -1;
 
     temp = strtok(NULL, " \n");
-    if (temp == NULL)
-        return -1;
+    if (temp == NULL) {
+        /* so we just watch on address */
+        no_value = 1;
+    } else {
+        errno = 0;
+        word = strtol(temp, NULL, 10);
+        if (errno != 0)
+            return -1;
+    }
 
-    errno = 0;
-    word = strtol(temp, NULL, 16);
-    if (errno != 0)
-        return -1;
-
-    return set_wp(addr, word, pid);
+    return set_wp(addr, word, no_value, pid);
 }
 
 /* This function is called when user sends breakpoint command
@@ -1227,6 +1259,12 @@ int breakpoint(char *buf, pid_t pid)
         printf("Hardware breakpoints are in use\n");
         return 0;
     }
+
+    if (wp.set == 1) {
+        printf("watchpoints are in use\n");
+        return 0;
+    }
+
     char *temp = strtok(NULL, " ");
     struct bp *bp = NULL;
     if (temp == NULL) {
