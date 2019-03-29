@@ -1110,6 +1110,21 @@ static int rm_hw_bp(pid_t pid, int num)
     hw_bp.set = 0;
 }
 
+/* delete watchpoint */
+static int remove_wp(pid_t pid)
+{
+    if (wp.set == 1) {
+        rm_hw_bp(pid, 0);
+    } else {
+        printf("No watchpoint found\n");
+        return 0;
+    }
+    bzero(&wp, sizeof(wp));
+    printf("Watchpoint deleted\n");
+
+    return 0;
+}
+
 /* This function is called when user sends delete command
  * It removes the break point or tells user if there is no
  * breakpoints currently active */
