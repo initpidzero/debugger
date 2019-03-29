@@ -791,7 +791,9 @@ static int resume_bp(struct bp *bp, pid_t pid)
     }
 }
 
-/* Main stepping function checks for break points */
+/* This function also deals with software breakpoint
+ * stepping in and stepping out.
+ *
 int step_bp(pid_t pid)
 {
     struct bp *bp = NULL;
@@ -894,18 +896,16 @@ static int cont_bp(pid_t pid)
     return 0;
 }
 
-/* This is main continue function.
- * pid process id for debuggee
- * Do we allow both software and hardware breakpoint at the same time?
- * Let's assume here that only one type of breakpoint is set:
- * Each of them have their own function.
- */
 int cont(pid_t pid)
 {
+    /* at any given time only one of the following is active
+     * 1. Hardware breakpoint */
     if (hw_bp.set == 1)
         return cont_hw(pid);
+    /* 2. Watchpoint */
     else if (wp.set == 1)
         return cont_wp(pid);
+    /* 3. Software breakpoint and general continuation */
     else
        return cont_bp(pid);
 }
@@ -933,9 +933,7 @@ static int remove_bp(uintptr_t addr)
     printf("Breakpoint deleted\n");
 
 }
-/* This function is called when user sends delete command
- * It removes the break point or tells user if there is no
- * breakpoints currently active */
+
 int delete(char *buf, pid_t pid)
 {
     uintptr_t addr = 0;
@@ -1054,8 +1052,6 @@ static int get_next_frame(uintptr_t *rbp, pid_t pid)
 
 }
 
-/* get back trace
- * let's do it for 5 levels */
 int bt(pid_t pid)
 {
     uintptr_t word;
@@ -1083,8 +1079,6 @@ int bt(pid_t pid)
     return 0;
 }
 
-/* This function set the action for signals from debuggee
- */
 int p_sig(char *buf, pid_t pid)
 {
     char *temp = strtok(NULL, "\n");

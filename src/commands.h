@@ -1,49 +1,54 @@
 #ifndef __DBG_HELPER_H__
 #define __DBG_HELPER_H__
 
-/* spawn the binary with debugger */
+/* Spawn the binary with PTRACE_TRACEME. */
 int run(char *buf);
 
-/* attach the process with pid */
+/* Attach the process with pid */
 int pattach(pid_t pid);
 
 /* prints help */
 void help();
 
-/* This function is called when user sends breakpoint command
- * It obtains addr for break point
- * Checks if breakpoint at this address is active
- * sets breakpoint on user provided address */
+/* Handle breakpoint command.
+ * Extract address for break point.
+ * Check if breakpoint at this address is active.
+ * if not, sets breakpoint on user provided address.
+ * if address is not provided, display the currently set breakpoints. */
 int breakpoint(char *buf, pid_t pid);
 
-/* This function is called when user sends hardware command
- * It obtains addr for break point
- * Checks if breakpoint at this address is active
- * sets breakpoint on user provided address */
+/* Handle hardware breakpoint command.
+ * Extract address for break point
+ * Check if hardware breakpoint at this address is active
+ * if not, sets breakpoint on user provided address
+ * if address is not provided, display the currently set breakpoints. */
 int hw(char *buf, pid_t pid);
 
-/* This function set the action for signals from debuggee
+/* Set signal action for signals from debuggee.
+ * Signals can either be ignored(default action)
+ * or passed on to debuggee on next ptrace running command.
  */
 int p_sig(char *buf, pid_t pid);
 
-/* get back trace
- * let's do it for 5 levels */
+/* Obtain backtrace from current point.
+ * The implementation is still a bit shaky.
+ * we only unwind the stack upto two levels.*/
 int bt(pid_t pid);
 
-/* This function is called when user sends delete command
- * It removes the break point or tells user if there is no
- * breakpoints currently active */
+/* Delete breakpoint(hardware or software) or watchpoint.
+ * If address is provided, then particular breakpoint is deleted else all
+ * breakpoints are delete.
+ * Currently, only one hardware breakpoint and one watchpoint can be set, so
+ * address for hw bp and wp are not used. */
 int delete(char *buf, pid_t pid);
 
-/* This is main continue function.
- * pid process id for debuggee
- * Do we allow both software and hardware breakpoint at the same time?
- * Let's assume here that only one type of breakpoint is set:
- * Each of them have their own function.
+/* Handle continue command.
+ * This function decides continuation based on
+ * type of breakpoint or watchpoint set.
  */
 int cont(pid_t pid);
 
-/* Main stepping function checks for break points */
+/* Handle single stepping command */
 int step_bp(pid_t pid);
 
 /* This function is called when user enters write command.
