@@ -22,11 +22,6 @@ int breakpoint(char *buf, pid_t pid);
  * sets breakpoint on user provided address */
 int hw(char *buf, pid_t pid);
 
-/* This function is called when user sends delete command
- * It removes the break point or tells user if there is no
- * breakpoints currently active */
-int remove_hw(pid_t pid);
-
 /* This function set the action for signals from debuggee
  */
 int p_sig(char *buf, pid_t pid);

@@ -44,7 +44,6 @@ enum {
     p_signal,
     p_bt,
     p_hw,
-    p_hw_rm,
     p_watch,
     p_quit
 };
@@ -65,7 +64,6 @@ char commands[][10] = {
     "signal",
     "backtrace",
     "hardware",
-    "remove",
     "watch",
     "quit"
 };
@@ -240,11 +238,6 @@ int dbg(int *exit, char *buf)
             }
             if (watch(buf, tracee_pid) == -1)
                 fprintf(stderr, "Cannot set watchpoint \n");
-            break;
-
-        case p_hw_rm:
-            if (remove_hw(tracee_pid) == -1)
-                fprintf(stderr, "Cannot delete breakpoint \n");
             break;
 
         case p_quit:

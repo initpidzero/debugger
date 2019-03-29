@@ -10,8 +10,8 @@ Commands currently supported.
 8. Write
 9. Regs
 10. Continue
-10. Run  
-11. Backtrace
-12. Hardware breakpoint 
-13. Delete breakpoints.
-14. Quit
+11. Run  
+12. Backtrace
+13. Hardware breakpoint 
+14. Watchpoint
+15. Quit

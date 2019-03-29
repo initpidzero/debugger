@@ -210,19 +210,20 @@ static int detach(pid_t pid)
     return 0;
 }
 
-/* Free all breakpoint structures in the list */
+/* Free all breakpoint structures in the list.
+ * any function calling this routing should check if
+ * bp_list is NULL. */
+
 static void rm_all_bp(void)
 {
-    if (bp_list) {
-        struct list *temp = bp_list->head;
-        while (temp) {
-            struct list *next = temp->next;
-            free(temp->element);
-            temp->element = NULL;
-            free(temp);
-            temp = NULL;
-            temp = next;
-        }
+    struct list *temp = bp_list->head;
+    while (temp) {
+        struct list *next = temp->next;
+        free(temp->element);
+        temp->element = NULL;
+        free(temp);
+        temp = NULL;
+        temp = next;
     }
     bp_list = NULL;
 }
@@ -591,16 +592,6 @@ static int write_dr(unsigned long word, int num, pid_t pid)
     return 0;
 }
 
-/* write 0 to debug register.
- * num: debug register number. */
-static int clear_dr(int num, pid_t pid)
-{
-    uintptr_t offset = offsetof(struct user, u_debugreg[num]);
-    if (poke_user(offset, 0x0, pid) == -1)
-        return -1;
-
-    return 0;
-}
 
 /* This function is called when user enters read command.
  * It parses arguments for read command to find which address
@@ -666,6 +657,42 @@ int p_poke(char *buf, pid_t pid)
         return -1;
 
     return poke_long(addr, word, pid);
+}
+
+
+/* remove hardware breakpoint */
+static int clear_drs(pid_t pid, int num)
+{
+    /* set all debug registers to zero */
+    if (write_dr(0, num, pid) == -1)
+        return -1;
+    if (write_dr(0, 6, pid) == -1)
+        return -1;
+    if (write_dr(0, 7, pid) == -1)
+        return -1;
+
+}
+
+/* delete watchpoint */
+static int remove_wp(uintptr_t addr, pid_t pid)
+{
+    clear_drs(pid, 0);
+    bzero(&wp, sizeof(wp));
+    printf("Watchpoint deleted\n");
+
+    return 0;
+}
+
+/* This function is called when user sends delete command
+ * It removes the break point or tells user if there is no
+ * breakpoints currently active */
+static int remove_hw(uintptr_t addr, pid_t pid)
+{
+    clear_drs(pid, 0);
+    bzero(&hw_bp, sizeof(hw_bp));
+    printf("Hardware Breakpoint deleted\n");
+
+    return 0;
 }
 
 /* Function to remove breakpoint
@@ -883,23 +910,10 @@ int cont(pid_t pid)
        return cont_bp(pid);
 }
 
-/* This function is called when user sends delete command
- * It removes the break point or tells user if there is no
- * breakpoints currently active */
-int delete(char *buf, pid_t pid)
+/* just make this one for breakpoints */
+static int remove_bp(uintptr_t addr)
 {
-    uintptr_t addr = 0;
     struct bp *bp = NULL;
-    char *temp = strtok(NULL, " ");
-    if (temp == NULL) {
-        rm_all_bp();
-        printf("All breakpoints removed\n");
-        return 0;
-    }
-
-    addr = (uintptr_t)strtoul(temp, NULL, 16);
-    if (addr == 0 || errno != 0)
-        return -1;
 
     bp = get_bp_from_list(addr);
     if (!bp) {
@@ -917,6 +931,37 @@ int delete(char *buf, pid_t pid)
     }
     bzero(bp, sizeof(*bp));
     printf("Breakpoint deleted\n");
+
+}
+/* This function is called when user sends delete command
+ * It removes the break point or tells user if there is no
+ * breakpoints currently active */
+int delete(char *buf, pid_t pid)
+{
+    uintptr_t addr = 0;
+    char *temp = strtok(NULL, " ");
+    if (temp == NULL) {
+        if (bp_list) {
+            rm_all_bp();
+            printf("All breakpoints removed\n");
+            return 0;
+        }
+    } else {
+        addr = (uintptr_t)strtoul(temp, NULL, 16);
+        if (addr == 0 || errno != 0)
+            return -1;
+    }
+
+    if (hw_bp.set == 1) {
+        return remove_hw(addr, pid);
+    }
+
+    if (wp.set == 1) {
+        return remove_wp(addr, pid);
+    }
+
+    if(bp_list)
+        remove_bp(addr);
 
     return 0;
 }
@@ -1094,52 +1139,6 @@ static void show_bp()
         if (bp->set == 1 || bp->set == 2)
             printf("Breakpoint %d set at %lx\n",bp->num, bp->addr);
     }
-}
-
-/* remove hardware breakpoint */
-static int rm_hw_bp(pid_t pid, int num)
-{
-    /* set all debug registers to zero */
-    if (write_dr(0, num, pid) == -1)
-        return -1;
-    if (write_dr(0, 6, pid) == -1)
-        return -1;
-    if (write_dr(0, 7, pid) == -1)
-        return -1;
-
-    hw_bp.set = 0;
-}
-
-/* delete watchpoint */
-static int remove_wp(pid_t pid)
-{
-    if (wp.set == 1) {
-        rm_hw_bp(pid, 0);
-    } else {
-        printf("No watchpoint found\n");
-        return 0;
-    }
-    bzero(&wp, sizeof(wp));
-    printf("Watchpoint deleted\n");
-
-    return 0;
-}
-
-/* This function is called when user sends delete command
- * It removes the break point or tells user if there is no
- * breakpoints currently active */
-int remove_hw(pid_t pid)
-{
-    if (hw_bp.set == 1) {
-        rm_hw_bp(pid, 0);
-    } else {
-        printf("No harware breakpoint found\n");
-        return 0;
-    }
-    bzero(&hw_bp, sizeof(hw_bp));
-    printf("Hardware Breakpoint deleted\n");
-
-    return 0;
 }
 
 /*set hardware break point */
@@ -1326,33 +1325,36 @@ int breakpoint(char *buf, pid_t pid)
 /* prints help */
 void help()
 {
-    char *help_str = "Commands supported\n"
-        "help:      This command\n"
-        "run:       run a (binary)\n"
-        "attach:    Attach to (pid)\n"
-        "detach:    Detach \n"
-        "write:     Write (value) to (addr)\n"
-        "read:      Read from (addr) \n"
-        "regs:      Get register value(s). [reg name] optional \n"
-        "step:      Go forward one instruction\n"
-        "continue:  Continue \n"
-        "break:     Set break point at (addr)\n"
-        "break:     Show all breakpoints\n"
-        "delete:    Delete breakpoint at (addr)\n"
-        "signal:    Set signal action to (pass) or (ignore)\n"
-        "signal:    Show signal action \n"
-        "backtrace: Show backtrace \n"
-        "hardware:  Set Hardware breakpoint at (address)\n"
-        "remove:    Delete Hardware breakpoint.\n"
+    char *help_str = "Commands supported.\n"
+        "help:      This command.\n"
+        "run:       run a (binary).\n"
+        "attach:    Attach to (pid).\n"
+        "detach:    Detach.\n"
+        "write:     Write (value) to (addr).\n"
+        "read:      Read from (addr).\n"
+        "regs:      Get register value(s). [reg name] optional.\n"
+        "step:      Go forward one instruction.\n"
+        "continue:  Continue.\n"
+        "break:     Set break point at (addr).\n"
+        "break:     Show all breakpoints.\n"
+        "delete:    Delete any software or hardware breakpoints or watchpoints.\n"
+        "delete:    Delete breakpoint at (addr).\n"
+        "delete:    Delete watchpoint at (addr).\n"
+        "delete:    Delete hardware breakpoint at (addr).\n"
+        "signal:    Set signal action to (pass) or (ignore).\n"
+        "signal:    Show signal action.\n"
+        "backtrace: Show backtrace.\n"
+        "hardware:  Set Hardware breakpoint at (address).\n"
         "watch:     Set watchpoint at (addr) for (value).\n"
-        "quit:      Exit from debugger\n" ;
+        "quit:      Exit from debugger.\n" ;
 
     printf("%s", help_str);
 }
 
 void exit_dbg(void)
 {
-    rm_all_bp();
+    if(bp_list)
+        rm_all_bp();
     clear_ds();
     tracee_pid = 0;
 }
@@ -1376,7 +1378,11 @@ int pdetach(pid_t pid)
     }
     /* remove any hardware breakpoints before leaving */
     if (hw_bp.set == 1)
-        rm_hw_bp(pid, 0);
+        remove_hw(hw_bp.addr, pid);
+
+    /* remove any hardware breakpoints before leaving */
+    if (wp.set == 1)
+        remove_wp(wp.addr, pid);
 
     if (detach(pid) == -1)
         return -1;
