@@ -2,9 +2,9 @@
 #include <stdio.h>
 #include "list.h"
 
-/* initiate list with an element */
 void list_init(struct list *list, void *element)
 {
+    /* so the list embeds element as part of data structure */
     if (list == NULL) {
         fprintf(stderr, "List is empty\n");
         return;
@@ -15,7 +15,6 @@ void list_init(struct list *list, void *element)
     list->head = list;
 }
 
-/* return number of members in this list */
 unsigned int get_num_members(struct list *list)
 {
     int num = 0;
@@ -32,7 +31,6 @@ unsigned int get_num_members(struct list *list)
     return num;
 }
 
-/* add a pre allocated list member and a relevant element here */
 void list_add_next(struct list **list, void *element, struct list *new)
 {
     if (list == NULL) {
@@ -40,6 +38,7 @@ void list_add_next(struct list **list, void *element, struct list *new)
         return;
     }
 
+    /* list moves on, since the head is embedded in list */
     new->element = element;
     (*list)->next = new;
     new->prev = *list;
@@ -49,7 +48,6 @@ void list_add_next(struct list **list, void *element, struct list *new)
     printf("list %p list->prev %p new %p\n", list, (*list)->prev, new);
 }
 
-/* right so we want to find where in the list this element lies */
 void *find_element(struct list *list, void *element)
 {
     struct list *temp;

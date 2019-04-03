@@ -7,12 +7,17 @@
 #include <assert.h>
 #include "list.h"
 
+/* Limit on heap size wrt maximum pages allocated. */
 #define MAX_PAGES 20
 
+/* first element in heap data structure */
 static struct list heap_start;
+/* concurrent heap address */
 static struct list *heap = NULL;
+/* page_size should be 4096 for x86_64, but let's get it */
 static size_t page_size = 0;
 
+/* Data structure to keep track of memory in current page */
 struct map {
     uintptr_t *current; /* this current free location in map */
     size_t free;
@@ -94,7 +99,6 @@ int manage_heap()
         add_page();
 }
 
-/* Get a size chunk of memory */
 void *get_mem(size_t size)
 {
     assert(size <= 256);

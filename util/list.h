@@ -1,5 +1,7 @@
 #ifndef __LIST_H__
 #define __LIST_H__
+
+/* list data structure */
 struct list {
     void *element;
     struct list *next;
