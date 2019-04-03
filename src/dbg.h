@@ -36,6 +36,7 @@ struct wp {
     int no_value; /* so this variable is set if there is no value to be watched for */
 };
 
+/* signals data structure */
 struct sig_dis {
     int sig; /* signal recieved */
     int set; /* whether of not we have a pending signal */

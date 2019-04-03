@@ -4,7 +4,8 @@
 /* Spawn the binary with PTRACE_TRACEME. */
 int run(char *buf);
 
-/* Attach the process with pid */
+/* Attach the process with pid.
+ * This puts process in stop mode PTRACESTOPS */
 int pattach(pid_t pid);
 
 /* prints help */
@@ -51,32 +52,35 @@ int cont(pid_t pid);
 /* Handle single stepping command */
 int step_bp(pid_t pid);
 
-/* This function is called when user enters write command.
+/* Handle write to an address request from the user.
  * It parses arguments for write command to find which address
  * value user want to write at and what content user want to write */
 int p_poke(char *buf, pid_t pid);
 
-/* This function is called when user enters read command.
+/* Handle read from an address request from the user.
  * It parses arguments for read command to find which address
  * value user want read */
 int p_peek(char *buf, pid_t pid);
 
-/* This function is called when user enters regs command.
+/* Show register contents for debuggee process.
  * It parses arguments for regs command to find which register's
  * value user want to see */
 int regs(char *buf, pid_t pid);
 
-/* This function is ptrace detach*/
-/* It also checks for any signals which needs to delivered */
+/* Detach debuggee from debugger.
+ * Check if any breakpoints/watchpoints are active,
+ * remove them before detaching.
+ * Also check for any signals which needs to delivered. */
 int pdetach(pid_t pid);
 
-/* initialise some variables */
+/* Intialise debugger by setting initial values for few parameter.
+ * Probably add signal handlers etc.
+ * TODO: clean this function */
 void init_dbg();
 
-/* This function is called when user sends watch command
- * It obtains addr for watchpoint
- * Checks if breakpoints(hw or sw) are set
- * sets watchpoint on a give addr for a particular value */
+/* Set watchpoints in user command.
+ * Obtain addr for watchpoint and value to be watched.
+ */
 int watch(char *buf, pid_t pid);
 
 #endif

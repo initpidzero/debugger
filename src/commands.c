@@ -500,9 +500,6 @@ static int regs_value(pid_t pid, char *reg)
     return 0;
 }
 
-/* This function is called when user enters regs command.
- * It parses arguments for regs command to find which register's
- * value user want to see */
 int regs(char *buf, pid_t pid)
 {
     char *temp = strtok(NULL, "\n");
@@ -632,9 +629,6 @@ static int poke_long(uintptr_t addr, unsigned long word, pid_t pid)
     return status;
 }
 
-/* This function is called when user enters write command.
- * It parses arguments for write command to find which address
- * value user want to write at and what content user want to write */
 int p_poke(char *buf, pid_t pid)
 {
     uintptr_t addr;
@@ -793,7 +787,7 @@ static int resume_bp(struct bp *bp, pid_t pid)
 
 /* This function also deals with software breakpoint
  * stepping in and stepping out.
- *
+ */
 int step_bp(pid_t pid)
 {
     struct bp *bp = NULL;
@@ -1161,13 +1155,11 @@ static int set_hw_bp(uintptr_t addr, int num, pid_t pid)
     return 0;
 }
 
-/* This function is called when user sends hardware command
- * It obtains addr for break point
- * Checks if breakpoint at this address is active
- * sets breakpoint on user provided address */
 int hw(char *buf, pid_t pid)
 {
     uintptr_t addr = 0;
+
+    /* check if any other kinds of tracepoints are active */
     if (bp_list) {
         printf("Software breakpoints are in use\n");
         return 0;
@@ -1180,6 +1172,7 @@ int hw(char *buf, pid_t pid)
 
     char *temp = strtok(NULL, " ");
     if (temp == NULL) {
+        /* if no argument is provided show all set hw breakpoints */
         show_hw();
         return 0;
     }
@@ -1224,15 +1217,13 @@ static int set_wp(uintptr_t addr, long value, int no_value, pid_t pid)
     return 0;
 }
 
-/* This function is called when user calls watch command.
- * It parses arguments for watch command to find which address
- * value user want to watch at and what value user want at this address. */
 int watch(char *buf, pid_t pid)
 {
     uintptr_t addr;
     long word; /* so the value could be signed or unsigned. */
     int no_value = 0;
 
+    /* check if there are any hw or sw breakpoint active atm */
     if (bp_list) {
         printf("Software breakpoints are in use\n");
         return 0;
@@ -1245,6 +1236,8 @@ int watch(char *buf, pid_t pid)
 
     char *temp = strtok(NULL, " ");
     if (temp == NULL) {
+        /* No argument is supplied by the user, display all set watchpoint
+         * address */
         show_wp();
         return 0;
     }
@@ -1267,10 +1260,6 @@ int watch(char *buf, pid_t pid)
     return set_wp(addr, word, no_value, pid);
 }
 
-/* This function is called when user sends breakpoint command
- * It obtains addr for break point
- * Checks if breakpoint at this address is active
- * sets breakpoint on user provided address */
 int breakpoint(char *buf, pid_t pid)
 {
     uintptr_t addr = 0;
@@ -1287,6 +1276,7 @@ int breakpoint(char *buf, pid_t pid)
     char *temp = strtok(NULL, " ");
     struct bp *bp = NULL;
     if (temp == NULL) {
+        /* if no argument is provided show all breakpoints currently set */
         show_bp();
         return 0;
     }
@@ -1316,7 +1306,6 @@ int breakpoint(char *buf, pid_t pid)
     return 0;
 }
 
-/* prints help */
 void help()
 {
     char *help_str = "Commands supported.\n"
@@ -1386,7 +1375,6 @@ int pdetach(pid_t pid)
     return 0;
 }
 
-/* attach to the debuggee */
 int pattach(pid_t pid)
 {
     int status = ptrace(PTRACE_ATTACH, pid, 0 ,0);
@@ -1433,15 +1421,16 @@ static int fork_exec(char *bin)
     return 0;
 }
 
-/* Run a given binary file name under ptrace */
 int run(char *buf)
 {
     pid_t pid;
+    int status;
     char *bin = strtok(NULL, " \n");
     if (bin == NULL)
         return -1;
     errno = 0;
-    int status = access(bin, R_OK | X_OK);
+    /* check if binary file even exists */
+    status = access(bin, R_OK | X_OK);
     if (status == -1 || errno != 0) {
         fprintf(stderr, "Access error %s\n", strerror(errno));
         return -1;
