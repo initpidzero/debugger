@@ -1,6 +1,6 @@
-/* This file contains helper function for debugger.
- * Some helper functions are for attach, detach, run, breakpoints etc.
- * Few function require basic parsing to get arguments.
+/* This file contains functions for debugger, which provide functionality
+ * for commands corresponding to debugger.
+ * Also contains Auxillary functions for maintainibility reasons.
  * */
 
 #define _XOPEN_SOURCE 500 /* for TRACE_* */
@@ -28,8 +28,8 @@
 /* This is debuggee pid */
 extern int tracee_pid;
 
-/* string for register names */
-char sregs[][8]  = {
+/* string for integer register names */
+char sregs[][WORD]  = {
 "rax",
 "rbx",
 "rcx",
@@ -60,47 +60,54 @@ char sregs[][8]  = {
 static struct list *bp_list = NULL;
 
 /* Hardware Breakpoint data structure */
+/* NOTE: Supports one hardware breakpoint. */
 static struct hw_bp hw_bp;
 
 /* Watchpoint data structure */
+/* NOTE: Supports one watchpoint. */
 static struct wp wp;
 
-/* last signal recieved and associated action */
+/* last signal recieved and associated action. */
 struct sig_dis sig_dis;
 
-/* remove signals from sig_dis data structure  */
+/* Remove signal from sig_dis data structure. */
 static void rm_sig()
 {
     sig_dis.sig = 0;
     sig_dis.set = 0;
 }
 
-/* reset sig_dis data structure to ignore signals*/
+/* Reset sig_dis data structure to ignore signals. */
 static void unset_sig()
 {
     sig_dis.act = 0;
     rm_sig();
 }
 
-/* If a signal is recieved and our signal action is
- * pass, we add signal to data sig_dis structure */
+/* Add signal to the sig_dis */
 static void add_sig(int sig)
 {
+    /* If signal action is pass, we add signal to data sig_dis structure. */
     if (sig_dis.act == 1) {
         sig_dis.sig = sig;
         sig_dis.set = 1;
     }
 }
 
-/* get more information about SIGTRAP.
- * If this is TRAP_TRACE and TRAP_BRKPT
- * it is from debugee, else it is from user
+/* Get more information about SIGTRAP.
+ * NOTE: This function could still be used to get
+ * more information about other functions, but we are not
+ * using that functionality.
  */
 static int get_siginfo(pid_t pid)
 {
     siginfo_t siginfo;
     ptrace(PTRACE_GETSIGINFO, pid, 0, &siginfo);
     printf("siginfo = %d\n",siginfo.si_signo);
+
+    /* If this is TRAP_TRACE and TRAP_BRKPT
+     * it is from debugee, else it is from user */
+
     if (siginfo.si_code == TRAP_BRKPT) {
     //    printf("Break point\n");
         return 0;
@@ -117,10 +124,11 @@ static int get_siginfo(pid_t pid)
         //printf("User\n");
         return siginfo.si_signo;
     }
+
     return siginfo.si_signo;
 }
 
-/* This function takes an appropriate action based on
+/* Take an appropriate action based on
  * signal action settings */
 static void set_sig(int sig)
 {
@@ -160,8 +168,9 @@ static void set_sig(int sig)
     }
 }
 
-/* This function uses waitpid on pid to check status of debuggee process,
+/* Use waitpid() on pid to check status of debuggee process,
  * when it exits or recieves a signal.
+ * options: Waitpid options. Currently not really used.
  * return : The signal value recieved from debuggee */
 static int pwait(pid_t pid, int options)
 {
@@ -180,6 +189,7 @@ static int pwait(pid_t pid, int options)
         tracee_pid = 0;
     } else if (WIFSTOPPED(wstatus)) {
         sig = WSTOPSIG(wstatus);
+        /* we have recieved a signal, take a note of this signal. */
         set_sig(sig);
     } else if (WIFCONTINUED(wstatus)) {
         printf("Debuggee continues\n");
@@ -188,16 +198,18 @@ static int pwait(pid_t pid, int options)
     return sig;
 }
 
-/* This function is ptrace detach*/
-/* It also checks for any signals which needs to delivered */
+/*  Provide ptrace_detach functionality and signals housekeeping after detach. */
 static int detach(pid_t pid)
 {
     int sig = 0;
+    int status;
+
     /* are there any pending signal */
     if (sig_dis.set == 1 && sig_dis.act == 1)
         sig = sig_dis.sig;
 
-    int status = ptrace(PTRACE_DETACH, pid, 0 , sig);
+    errno = 0;
+    status = ptrace(PTRACE_DETACH, pid, 0 , sig);
     if (status == -1 && errno != 0) {
         fprintf(stderr, "detach failed : %s\n", strerror(errno));
         return -1;
@@ -211,11 +223,14 @@ static int detach(pid_t pid)
 }
 
 /* Free all breakpoint structures in the list.
- * any function calling this routing should check if
+ * NOTE: Any function calling this routing should check if
  * bp_list is NULL. */
 
 static void rm_all_bp(void)
 {
+    /* This might need resturcturing */
+    /* for now we are embedding structures in list,
+     * a better implmentation is other way round */
     struct list *temp = bp_list->head;
     while (temp) {
         struct list *next = temp->next;
@@ -228,22 +243,24 @@ static void rm_all_bp(void)
     bp_list = NULL;
 }
 
-/* reset all entries in signal and breakpoint data structure */
+/* reset all entries in signal structure. */
 static void clear_ds()
 {
     rm_sig();
 }
 
-/* This function deals with pending SIGSEGV */
+/* Handler for pending SIGSEGV. */
 static int segv_handle(pid_t pid)
 {
+    /* we want to send the signal by detach command */
     detach(pid);
+    /* remove any pending signals */
     clear_ds();
     tracee_pid = 0;
     return 0;
 }
 
-/* This function read data from address
+/* Read word size data from address using PEEKDATA.
  * addr: address to which data should be read from
  * word: content at the address addr */
 static int peek_long(uintptr_t addr, unsigned long *word, pid_t pid)
@@ -259,10 +276,12 @@ static int peek_long(uintptr_t addr, unsigned long *word, pid_t pid)
     return 0;
 }
 
-/* This function calls ptrace with PTRACE_CONT */
+/* Call ptrace with PTRACE_CONT.
+ * Also check for delivery of any pending singals. */
 static int pcont(pid_t pid)
 {
     int sig = 0;
+    int status;
     /* check for pending signal */
     if (sig_dis.set == 1 && sig_dis.act == 1) {
         sig = sig_dis.sig;
@@ -270,7 +289,8 @@ static int pcont(pid_t pid)
         if (sig == SIGSEGV)
            return segv_handle(pid);
     }
-    int status = ptrace(PTRACE_CONT, pid, NULL, sig);
+    errno = 0;
+    status = ptrace(PTRACE_CONT, pid, NULL, sig);
     if (status == -1 && errno != 0) {
         fprintf(stderr, "continue failed : %s\n", strerror(errno));
     }
@@ -281,7 +301,7 @@ static int pcont(pid_t pid)
     return status;
 }
 
-/* This function read user data at offset
+/* Read word size user data at given offset.
  * offset: offset to read  data  from
  * word: content at the address addr */
 static int peek_user(uintptr_t offset, unsigned long *word, pid_t pid)
@@ -304,10 +324,12 @@ static uintptr_t read_dr(int num, pid_t pid)
 {
     unsigned long reg;
     uintptr_t offset = offsetof(struct user, u_debugreg[num]);
-    peek_user(offset, &reg, pid);
+    if(peek_user(offset, &reg, pid) == -1)
+        return -1;
     return reg;
 }
 
+/* Continue if watchpoint is set */
 static int cont_wp(pid_t pid)
 {
     int sig;
@@ -322,13 +344,18 @@ static int cont_wp(pid_t pid)
         /* wait for either a signal or exit from debuggee*/
         if (sig == SIGTRAP) {
             unsigned long word;
+            /* When watchpoint is set on an address, however
+             * no value for watchpoint data is provided */
             if (wp.no_value) {
                 printf("Watchpoint hit at %lx\n", wp.addr);
                 break;
             }
 
+            /* current value at watchpoint address */
             if (peek_long(wp.addr, &word, pid) == -1)
                 return -1;
+
+            /* BUG: so when user provides a value and we past that value ? */
             if (wp.value == word) {
                 printf("Watchpoint hit at %lx with value %lx\n", wp.addr, wp.value);
                 break;
@@ -348,7 +375,7 @@ static int cont_wp(pid_t pid)
 }
 
 /* Continue to handle hardware breakpoint.
- * We only arrive in this function when hardware breakpoint is set.
+ * NOTE: We only arrive in this function when hardware breakpoint is set.
  * So there is no need to check if it was set or not.
  * */
 static int cont_hw(pid_t pid)
@@ -361,6 +388,8 @@ static int cont_hw(pid_t pid)
     }
     sig = pwait(pid, 0);
     /* wait for either a signal or exit from debuggee*/
+    /* BUG: We might want to add more checks here, so we know it is not user
+     * SIGTRAP. */
     if (sig == SIGTRAP) {
         uintptr_t dr0, dr6, dr7;
         printf("Breakpoint hit at %lx\n", hw_bp.addr);
@@ -386,7 +415,7 @@ static int set_regs(struct user_regs_struct *regs, pid_t pid)
     return status;
 }
 
-/* This function will print contents of registers in regs data structure.
+/* Print contents of registers in regs data structure.
  * reg: Register for which value needs to be printed */
 static void print_regs(struct user_regs_struct *regs, char *reg)
 {
@@ -443,11 +472,13 @@ static void print_regs(struct user_regs_struct *regs, char *reg)
     }
 }
 
-/* This function gets value of user registers in regs data structure
- * for debuggee with process id pid */
+/* Get value of user registers.
+ * regs: register data structure to get register values. */
 static int get_regs(struct user_regs_struct *regs, pid_t pid)
 {
-    int status = ptrace(PTRACE_GETREGS, pid, NULL, regs);
+    int status;
+    errno = 0;
+    status = ptrace(PTRACE_GETREGS, pid, NULL, regs);
     if (status == -1 && errno != 0) {
         fprintf(stderr, "getreg failed : %s %d\n", strerror(errno), pid);
     }
@@ -472,7 +503,7 @@ static uintptr_t get_rip(pid_t pid)
     return (uintptr_t)regs.rip;
 }
 
-/* This function prints entire set of user registers one by one */
+/* Print entire set of user registers one by one. */
 void print_all_regs(struct user_regs_struct *regs)
 {
     int total_regs = sizeof(sregs)/sizeof(sregs[0]);
@@ -482,10 +513,10 @@ void print_all_regs(struct user_regs_struct *regs)
         print_regs(regs, sregs[i]);
 }
 
-/* This function will obtain value for registers using get_regs() function
+/* Obtain value for registers using get_regs() function
  * and print them.
- * regs: register whose value needs to obtained
- * if regs is NULL, value for all registers are printed */
+ * NOTE: if regs is NULL, value for all registers are printed.
+ * regs: register whose value needs to obtained. */
 static int regs_value(pid_t pid, char *reg)
 {
     struct user_regs_struct regs;
@@ -510,11 +541,11 @@ int regs(char *buf, pid_t pid)
     /* call regs_value to actually obtain regs data
      * and print register values */
     return regs_value(pid, temp);
-
 }
 
-/* Get breakpoint data structure from list at address addr.
- * if no matching breakpoint is found, return NULL.*/
+/* Get breakpoint data structure from breakpoint list.
+ * addr: Address to match.
+ * return: NULL, if address doesn't match. */
 static struct bp *get_bp_from_list(uintptr_t addr)
 {
     struct bp *bp = NULL;
@@ -530,14 +561,13 @@ static struct bp *get_bp_from_list(uintptr_t addr)
 }
 
 /* Get a breakpoint data structure.
- * If breakpoint exists at this address, return the associated ds.
- * If breakpoint doesn't exist, allocate a ds.
  * addr: address for breakpoint.
  * return: breakpoint data structure. */
 static struct bp *get_bp_ds(uintptr_t addr)
 {
     struct bp *bp = NULL;
     static unsigned int num_bp = 0;
+    /* If breakpoint doesn't exist, allocate a ds. */
     if (!bp_list) {
         /* at the beginning no break point was set */
         bp = (struct bp *)malloc(sizeof(*bp));
@@ -548,6 +578,7 @@ static struct bp *get_bp_ds(uintptr_t addr)
         list_init(bp_list, bp);
         return bp;
     } else {
+        /* If breakpoint exists at addr, return the associated ds. */
         bp = get_bp_from_list(addr);
         if(bp)
             return bp;
@@ -563,13 +594,14 @@ static struct bp *get_bp_ds(uintptr_t addr)
     }
 }
 
-/* This function writes user data at offset
+/* Write user data at offset.
  * offset: offset to read  data  from
  * word: content at the address addr */
 static int poke_user(uintptr_t offset, unsigned long word, pid_t pid)
 {
+    int status;
     errno = 0; /* clear errno before peeking */
-    int status  = ptrace(PTRACE_POKEUSER, pid, (void *)offset,
+    status  = ptrace(PTRACE_POKEUSER, pid, (void *)offset,
                          word);
     if (status == -1 && errno != 0) {
         fprintf(stderr, "peekdata failed : %s\n", strerror(errno));
@@ -590,9 +622,6 @@ static int write_dr(unsigned long word, int num, pid_t pid)
 }
 
 
-/* This function is called when user enters read command.
- * It parses arguments for read command to find which address
- * value user want read */
 int p_peek(char *buf, pid_t pid)
 {
     uintptr_t addr = 0;
@@ -601,7 +630,6 @@ int p_peek(char *buf, pid_t pid)
     char *temp = strtok(NULL, " \n");
     if (temp == NULL)
         return -1;
-
 
     addr = (uintptr_t)strtoul(temp, NULL, 16);
     if (addr == 0 || errno != 0)

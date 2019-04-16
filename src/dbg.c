@@ -1,6 +1,11 @@
-/* This program should be able to use basic ptrace functionality of
- * attaching, detaching and writing to a process. This is the main file for main
- * function, tester function and command loop and some parsing.
+/* This program should be able to use basic ptrace functionality to provide
+ * debugging facilities.
+ * Commands supported can be seen in commands string array.
+ * This file contains :
+ * 1. Main function.
+ * 2. Tester function.
+ * 3. Command loop.
+ * 4. Command parsing.
  * */
 
 #define _XOPEN_SOURCE 500 /* for TRACE_* */
@@ -27,7 +32,7 @@
 /* This is debuggee pid */
 int tracee_pid =  0;
 
-/* each command is given an index, which makes it easier to
+/* Each command is given an index, which makes it easier to
  * maintain switch case for various commands */
 enum {
     p_help,
@@ -48,7 +53,8 @@ enum {
     p_quit
 };
 
-/* corresponsing command string for each command */
+/* Corresponding command string for each command.
+ * We want to index commands wrt enumerator above.  */
 char commands[][10] = {
     "help",
     "run",
@@ -68,8 +74,7 @@ char commands[][10] = {
     "quit"
 };
 
-/* this function takes token string as argument and
- * converts it into command index */
+/* Convert Token string into command index */
 static int command_to_execute(char *token)
 {
     int i;
@@ -80,15 +85,15 @@ static int command_to_execute(char *token)
     return -1;
 }
 
-/* tokenise first string from buf until a blank space is found */
+/* Tokenise first string from buf until a blank space is found */
 static char *tokenise(char *buf)
 {
     return strtok(buf, " ");
 }
 
-/* This function simply extracts pid from
- * user supplied attach command */
-static pid_t extract_pid(char *buf, int com)
+/* Extract pid from attach command.
+ */
+static pid_t extract_pid(char *buf)
 {
     pid_t pid;
     char *temp = strtok(NULL, " \n");
@@ -98,7 +103,7 @@ static pid_t extract_pid(char *buf, int com)
     return pid;
 }
 
-/* this is the main api which drives the debugger.
+/* Main debugger api driving the debugger.
  * exit: 0 = quit, 1 = continue.
  * buf: commands and parameters in form of \n terminated line
  */
@@ -125,7 +130,7 @@ int dbg(int *exit, char *buf)
 
         case p_attach:
             /* If tracee_pid is not valid, debuggee cannot be attached */
-            tracee_pid = extract_pid(buf, com);
+            tracee_pid = extract_pid(buf);
             if (tracee_pid == -1) {
                 fprintf(stderr, "No pid specified\n");
                 tracee_pid = 0;
@@ -275,6 +280,7 @@ int main (int argc, char **argv)
     char prompt[] = "(dbg):";
     char buf[BUFSIZE];
 
+    /* Do some initialisation. */
     init_dbg();
     /* this is to carry out testing */
     if (argc > 1)
@@ -283,12 +289,14 @@ int main (int argc, char **argv)
     while (exit) {
         ssize_t bytes_read;
 
-        if (write(STDOUT_FILENO, prompt, strlen(prompt) + 1) == -1)
+        errno = 0;
+        if (write(STDOUT_FILENO, prompt, strlen(prompt) + 1) == -1 || errno != 0)
             fprintf(stderr, "write failed : %s\n", strerror(errno));
 
         bzero(buf, BUFSIZE);
+        errno = 0;
         bytes_read = read(STDIN_FILENO, buf, BUFSIZE);
-        if (bytes_read == -1)
+        if (bytes_read == -1 || errno != 0)
             fprintf(stderr, "read failed : %s\n", strerror(errno));
         assert(bytes_read > 0);
 

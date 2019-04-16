@@ -43,5 +43,4 @@ struct sig_dis {
     int act; /* 0 = signal is ignore. 1 = signal is passed to debuggee. */
 };
 
-/* we are only supporting one break point at this moment */
 #endif
