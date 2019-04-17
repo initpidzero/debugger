@@ -643,13 +643,14 @@ int p_peek(char *buf, pid_t pid)
     return 0;
 }
 
-/* This function writes data to an address
+/* Writes data to an address.
  * addr: address to which data should be written
  * word: content to be written to address addr */
 static int poke_long(uintptr_t addr, unsigned long word, pid_t pid)
 {
-    //printf("addr data = %p %lx\n", addr, word);
-    int status  = ptrace(PTRACE_POKEDATA, pid, (void *)addr,
+    int status;
+    errno = 0;
+    status  = ptrace(PTRACE_POKEDATA, pid, (void *)addr,
                          word);
     if (status == -1 && errno != 0) {
         fprintf(stderr, "peekdata failed : %s\n", strerror(errno));
@@ -681,8 +682,9 @@ int p_poke(char *buf, pid_t pid)
     return poke_long(addr, word, pid);
 }
 
-
-/* remove hardware breakpoint */
+/* remove hardware breakpoint.
+ * num: the number of debug register.
+ * */
 static int clear_drs(pid_t pid, int num)
 {
     /* set all debug registers to zero */
@@ -698,39 +700,39 @@ static int clear_drs(pid_t pid, int num)
 /* delete watchpoint */
 static int remove_wp(uintptr_t addr, pid_t pid)
 {
+    /* clear all debug registers. */
     clear_drs(pid, 0);
+    /* clear watchpoint data structure */
     bzero(&wp, sizeof(wp));
     printf("Watchpoint deleted\n");
 
     return 0;
 }
 
-/* This function is called when user sends delete command
- * It removes the break point or tells user if there is no
- * breakpoints currently active */
+/* Delete hardware breakpoint */
 static int remove_hw(uintptr_t addr, pid_t pid)
 {
+    /* clear all debug registers */
     clear_drs(pid, 0);
+    /* clear hardware breakpoint data structure */
     bzero(&hw_bp, sizeof(hw_bp));
     printf("Hardware Breakpoint deleted\n");
 
     return 0;
 }
 
-/* Function to remove breakpoint
-bp: breakpoint data structure
-Write the value at breakpoint addr back to
- * what it was before breakpoint was set. */
+/* Restore original value stored at breakpoint address.
+ * bp: breakpoint data structure
+ */
 static int rm_bp(struct bp *bp, pid_t pid)
 {
     if (poke_long(bp->addr, bp->word, pid) == -1)
         return -1;
-    //bp->set = 0;
 }
 
- /*This function restores the value which was overwritten
-  * at bp address. It also resets instruction pointer
-  * back to bp address*/
+ /* Revert value at breakpoint address from trap instruction
+  * to its orginal value. Resets instruction pointer
+  * back to bp address. */
 static int unset_bp(struct bp *bp, pid_t pid)
 {
     struct user_regs_struct regs;
@@ -748,8 +750,8 @@ static int unset_bp(struct bp *bp, pid_t pid)
     return set_regs(&regs, pid);
 }
 
-/* This function overwrites value at breakpoint address with
- * trap instruction */
+/* Overwrite value at breakpoint address with
+ * trap instruction. */
 static int add_bp(struct bp *bp, pid_t pid)
 {
     if (poke_long(bp->addr, bp->trap, pid) == -1)
@@ -759,9 +761,9 @@ static int add_bp(struct bp *bp, pid_t pid)
     return 0;
 }
 
-/* This function finds out the content at breakpoint address.
- * Create a suitable value for trap instruction
- * sets breakpoint */
+/* Save value at breakpoint address and create
+ * a suitable value for trap instruction to
+ * set breakpoint */
 static int set_bp(struct bp *bp, pid_t pid)
 {
     /* read data at addr */
@@ -775,10 +777,11 @@ static int set_bp(struct bp *bp, pid_t pid)
     return 0;
 }
 
-/* single step on each instruction */
+/* Single step on each instruction. */
 static int step(pid_t pid)
 {
     int sig = 0;
+    int status;
     /* check for pending signal */
     if (sig_dis.set == 1 && sig_dis.act == 1) {
         sig = sig_dis.sig;
@@ -787,7 +790,8 @@ static int step(pid_t pid)
             return segv_handle(pid);
     }
 
-    int status = ptrace(PTRACE_SINGLESTEP, pid, NULL, sig);
+    errno = 0;
+    status = ptrace(PTRACE_SINGLESTEP, pid, NULL, sig);
     if (status == -1 && errno != 0) {
         fprintf(stderr, "singlestep failed : %s\n", strerror(errno));
     }
@@ -799,10 +803,10 @@ static int step(pid_t pid)
     return status;
 }
 
-/* This function is called when breakpoint is hit
- * but we have reset register values and breakpoint address
- * to before we recieved SIGTAP. This will put breakpoint back before we can
- * either step or continue */
+/* Resume execution after breakpoint was hit.
+ * When breakpoint is hit we have reset RIP back by one byte
+ * So when we resume exection after breakpoint is hit, we don't want
+ * to execute same instruction again with breakpoint set, so we step once.*/
 static int resume_bp(struct bp *bp, pid_t pid)
 {
     /* we already know breakpoint was in resume mode before we come here */
@@ -813,14 +817,12 @@ static int resume_bp(struct bp *bp, pid_t pid)
     }
 }
 
-/* This function also deals with software breakpoint
- * stepping in and stepping out.
- */
 int step_bp(pid_t pid)
 {
     struct bp *bp = NULL;
     uintptr_t rip = get_rip(pid);
 
+    /* check for stepping in and out from a software breakpoint. */
     bp = get_bp_from_list(rip);
     if (bp) {
         /* check if there was a pending breakpoint */
@@ -849,10 +851,11 @@ int step_bp(pid_t pid)
     return 0;
 }
 
-/* This function resumes execution flow when debuggee is stopped because
- * 1.Signal was recieved by debuggee
+/* This function resumes execution flow when debuggee is stopped.
+ * Source of execution halt can be:
+ * 1. Signal was recieved by debuggee
  * 2. breakpoint was hit
- * 3. User sent "continue" command */
+ * 3. Debuggee finished execution or was killed. */
 static int cont_bp(pid_t pid)
 {
     int sig;
@@ -860,17 +863,18 @@ static int cont_bp(pid_t pid)
     struct bp *bp = NULL;
     if(bp_list)
         temp = bp_list->head;
-    /* check if there was a pending breakpoint */
-    /*resuming from previous pending breakpoint, set it again */
     for (; temp; temp = temp->next)
     {
         bp = (struct bp *)temp->element;
 
+        /* check if there was a pending breakpoint */
+        /*resuming from previous pending breakpoint, set it again */
         if (bp->set == 2) {
             if (resume_bp(bp, pid) == -1)
                 return -1;
             bp->set = 1;
         }
+        /* add TRAP instuction at the address */
         if (bp->set == 1) {
             if (add_bp(bp, pid) == -1)
                 return -1;
@@ -932,7 +936,8 @@ int cont(pid_t pid)
        return cont_bp(pid);
 }
 
-/* just make this one for breakpoints */
+/* Remove software breakpoint from breakpoint list.
+ * addr: address for breakpoint to be removed*/
 static int remove_bp(uintptr_t addr)
 {
     struct bp *bp = NULL;
