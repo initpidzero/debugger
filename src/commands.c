@@ -966,17 +966,21 @@ int delete(char *buf, pid_t pid)
     uintptr_t addr = 0;
     char *temp = strtok(NULL, " ");
     if (temp == NULL) {
+        /* if no argument is provided remove all breakpoints */
         if (bp_list) {
             rm_all_bp();
             printf("All breakpoints removed\n");
             return 0;
         }
+        /* TODO: Add removal of any watch or hw breakpoints */
     } else {
+        errno = 0;
         addr = (uintptr_t)strtoul(temp, NULL, 16);
         if (addr == 0 || errno != 0)
             return -1;
     }
 
+    /* Remove either hw or sw bp or wp */
     if (hw_bp.set == 1) {
         return remove_hw(addr, pid);
     }
@@ -991,9 +995,8 @@ int delete(char *buf, pid_t pid)
     return 0;
 }
 
-/* callq's opcode is E8 for near calls
- * We find where in last 8 bytes is e*8
- */
+/* Find the byte which contains e8 value.
+ * opcode for callq is E8 for near calls. */
 static int whereis_e8(uintptr_t word)
 {
     uintptr_t e8 = 0xe8;
@@ -1010,21 +1013,25 @@ static int whereis_e8(uintptr_t word)
     return pos;
 }
 
-/* How much offset from current point into
- * the function call */
+/* Find offset from current point into
+ * the function call. */
 static long long find_offset(int shift, uintptr_t word)
 {
     uintptr_t mask = 0xffffffffffffffff;
     long long offset;
+    /* unset every bit until the shift bit. */
     mask <<= (shift + 1) * 8;
+    /* we have removed all lower bits. */
     offset = word & mask;
+    /* move higher bits towards lower bits */
+    /* why the fuck did  I used sizeof(int) though? */
     offset =  offset >> (sizeof(int) * 8);
    // printf("offset = %ld %lx %d\n", offset, mask, shift);
 
     return offset;
 }
 
-/* Find the address address of function which was called.
+/* Find the return address of function which was called.
  */
 static int get_fnaddr(uintptr_t ret, pid_t pid)
 {
@@ -1043,12 +1050,14 @@ static int get_fnaddr(uintptr_t ret, pid_t pid)
     shift = whereis_e8(word);
     offset = find_offset(shift, word);
     //printf("call point = %lx\n",addr + shift);
+    /* so we are printing the address before return by offset bytes */
     printf("%lx\n", (uintptr_t)((long long)ret + offset));
 
     return 0;
 }
 
-/* Return address is stored just about rbp value pushed on stack
+/* Obtain Return address of funtion by looking into stack.
+ * Return address is stored just about rbp value pushed on stack
  * so to retrieve return address add WORD to rbp and
  * find value stored at that address */
 static int get_retaddr(uintptr_t rbp, pid_t pid, uintptr_t *ret)
@@ -1060,7 +1069,8 @@ static int get_retaddr(uintptr_t rbp, pid_t pid, uintptr_t *ret)
     return 0;
 }
 
-/* get contents or rbp, check the return address
+/* Get frame content for next frame.
+ * get contents of rbp, check the return address
  * before rbp */
 static int get_next_frame(uintptr_t *rbp, pid_t pid)
 {
@@ -1076,7 +1086,6 @@ static int get_next_frame(uintptr_t *rbp, pid_t pid)
 
     //printf("%lx %lx \n", rbp, word);
     return get_fnaddr(word, pid);
-
 }
 
 int bt(pid_t pid)
@@ -1090,14 +1099,18 @@ int bt(pid_t pid)
     if (rbp == 0)
         return -1;
 
+    /* obtain return address for the function stored in rbp */
     if (get_retaddr(rbp, pid, &word) == -1)
         return -1;
 
     //printf("%lx %lx \n", rbp, word);
+    /* Obtain function address by finding argument to callq */
     if (get_fnaddr(word, pid) == -1)
         return -1;
 
-    /* we would want another condition besides i <2 ? */
+    /* TODO: we would want another condition besides i <2 ? */
+    /* Keep obtaining next from stack until a given condition is
+     * satisfied. */
     for (int i = 0; i < 2; i++) {
         if ( get_next_frame(&rbp, pid) == -1)
             return -1;
@@ -1144,8 +1157,7 @@ static void show_hw()
     printf("No breakpoint is set\n");
 }
 
-/* This function tells user if there are any breakpoints
- */
+/* Show address for software breakpoints. */
 static void show_bp()
 {
     struct bp *bp = NULL;
@@ -1162,7 +1174,9 @@ static void show_bp()
     }
 }
 
-/*set hardware break point */
+/*set hardware break point.
+ * addr: address for breakpoint.
+ * num: 1 of 4 breakpoints. */
 static int set_hw_bp(uintptr_t addr, int num, pid_t pid)
 {
     uintptr_t dr7; /* Actual setting for breakpoints */
@@ -1176,9 +1190,11 @@ static int set_hw_bp(uintptr_t addr, int num, pid_t pid)
     dr7 = 0x701;
 
     hw_bp.addr = addr;
+    /* write above value for setting the breakpoint */
     if (write_dr(dr7, 7, pid) == -1)
         return -1;
-    if (write_dr(hw_bp.addr, 0, pid) == -1)
+    /* write address on which breakpoint should be activated. */
+    if (write_dr(hw_bp.addr, num, pid) == -1)
         return -1;
 
     /* writing dr is successful, let's update global hw bp variable. */
@@ -1218,7 +1234,10 @@ int hw(char *buf, pid_t pid)
     return 0;
 }
 
-/* so the actual work happens here */
+/* Set watchpoints.
+ * addr:    address to be watched.
+ * value:   Value to lookout for.
+ * no_value:    Just watch the address when there is a write */
 static int set_wp(uintptr_t addr, long value, int no_value, pid_t pid)
 {
     uintptr_t dr7; /* Actual setting for watchpoint */
@@ -1233,8 +1252,10 @@ static int set_wp(uintptr_t addr, long value, int no_value, pid_t pid)
      * 11010000011100000001*/
     dr7 = 0xD0701;
 
+    /* dr7 to be set for how watchpoint should be handled */
     if (write_dr(dr7, 7, pid) == -1)
         return -1;
+    /* we might at somepoint want to extend this and replace it with num? */
     if (write_dr(addr, 0, pid) == -1)
         return -1;
 
@@ -1361,7 +1382,9 @@ void help()
         "signal:    Show signal action.\n"
         "backtrace: Show backtrace.\n"
         "hardware:  Set Hardware breakpoint at (address).\n"
+        "hardware:  Show all hardware breakpoints.\n"
         "watch:     Set watchpoint at (addr) for (value).\n"
+        "watch:     Show all watchpoints.\n"
         "quit:      Exit from debugger.\n" ;
 
     printf("%s", help_str);
@@ -1375,7 +1398,6 @@ void exit_dbg(void)
     tracee_pid = 0;
 }
 
-/* detach the debuggee */
 int pdetach(pid_t pid)
 {
     struct list *temp = NULL;
@@ -1387,6 +1409,7 @@ int pdetach(pid_t pid)
         if (bp->set == 1) {
             bp->set = 0;
         } else if (bp->set == 2) {
+            /* we need resumption because of signal delivery? */
             if (resume_bp(bp, pid) == -1)
                 return -1;
             bp->set = 0;
@@ -1423,7 +1446,7 @@ int pattach(pid_t pid)
     return 0;
 }
 
-/* Fork the binary, set PTRACEME and exec it*/
+/* Fork the binary, set PTRACEME and exec it. */
 static int fork_exec(char *bin)
 {
     errno = 0;
@@ -1473,6 +1496,7 @@ int run(char *buf)
     return 0;
 }
 
+/* handle SIGINT recieved by debugger. */
 static void
 int_handler(int sig, siginfo_t *siginfo, void *ucontext)
 {
@@ -1482,8 +1506,8 @@ int_handler(int sig, siginfo_t *siginfo, void *ucontext)
         fprintf(stderr, "This shouldn't be happening\n");
 }
 
-/* let's register signal handler for debugger
- * especially SIGINT */
+/* Register signal handler for debugger
+ * NOTE: currently registered signals: SIGINT */
 static void reg_signals()
 {
     sigset_t mask;
