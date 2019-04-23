@@ -3,10 +3,10 @@
 
 /* list data structure */
 struct list {
-    void *element;
-    struct list *next;
-    struct list *prev;
-    struct list *head;
+        void *element;
+        struct list *next;
+        struct list *prev;
+        struct list *head;
 };
 
 /* initiate list with element */
