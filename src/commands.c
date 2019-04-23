@@ -357,7 +357,8 @@ static int cont_wp(pid_t pid)
 
                         /* BUG: so when user provides a value and we past that value ? */
                         if (wp.value == word) {
-                                printf("Watchpoint hit at %lx with value %lx\n", wp.addr, wp.value);
+                                printf("Watchpoint hit at %lx with value %lx\n",
+                                       wp.addr, wp.value);
                                 break;
                         } else
                                 continue;
