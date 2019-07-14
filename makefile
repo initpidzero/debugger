@@ -1,5 +1,5 @@
 INC = .
-CFLAGS = -g -I$(INC) 
+CFLAGS = -g -I$(INC) -Wall -Wextra
 TARGET = dbg sigsegv sigill sigfpe sigalarm
 OBJS = src/commands.c util/heap.c util/list.c
 all: $(TARGET)
