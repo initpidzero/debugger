@@ -64,6 +64,8 @@ int heap_init()
         //printf("map begins at %p \n",  heap->element);
         current.current = heap->element;
         current.free = page_size;
+
+        return 0;
 }
 
 /* so we can't just add elements to the list without either allocation
@@ -94,9 +96,9 @@ int add_page()
 int manage_heap()
 {
         if(NULL == heap)
-                heap_init();
+                return heap_init();
         else
-                add_page();
+                return add_page();
 }
 
 void *get_mem(size_t size)
@@ -143,6 +145,7 @@ void *get_mem(size_t size)
 void rm_mem(void *mem)
 {
         /* we need a way to make memory unavailable for usage */
+        (void)mem;
 }
 
 /* unmap all memory */
