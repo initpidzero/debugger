@@ -6,33 +6,32 @@
 
 void handle(int sig)
 {
-    if(sig == SIGSEGV)
-        printf("SIGSEGV recieved\n");
-    exit(1);
+        if(sig == SIGSEGV)
+                printf("SIGSEGV recieved\n");
+        exit(1);
 }
 
-static void
-bad_thing(void)
+static void bad_thing(void)
 {
-    char *bad_pointer = NULL;
-    *bad_pointer = 0;
+        char *bad_pointer = NULL;
+        *bad_pointer = 0;
 }
 
 int main (void)
 {
-    unsigned long i;
-    pid_t pid = getpid();
-    char hello[] = "hello world";
-    struct sigaction act;
-    act.sa_handler = handle;
-    sigaction(SIGSEGV, &act, 0);
+        unsigned long i;
+        pid_t pid = getpid();
 
-    for(i = 0; i < 44900; i++ )
-    {
-        printf("%d\n",pid);
-        if(i == 0)
-            getchar();
-    }
-    bad_thing();
-    return 0;
+        struct sigaction act;
+        act.sa_handler = handle;
+        sigaction(SIGSEGV, &act, 0);
+
+        for(i = 0; i < 44900; i++ )
+        {
+                printf("%d\n",pid);
+                if(i == 0)
+                        getchar();
+        }
+        bad_thing();
+        return 0;
 }

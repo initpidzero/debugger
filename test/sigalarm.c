@@ -6,33 +6,31 @@
 
 void handle(int sig)
 {
-    if(sig == SIGALRM)
-        printf("SIGALRM recieved\n");
-    exit(1);
+        if(sig == SIGALRM)
+                printf("SIGALRM recieved\n");
+        exit(1);
 }
 
-static void
-bad_thing(void)
+static void bad_thing(void)
 {
-    alarm(1);
+        alarm(1);
 }
 
 int main (void)
 {
-    unsigned long i = 0;
-    pid_t pid = getpid();
-    char hello[] = "hello world";
-    struct sigaction act;
-    act.sa_handler = handle;
-    sigaction(SIGALRM, &act, 0);
+        //unsigned long i = 0;
+        pid_t pid = getpid();
+        struct sigaction act;
+        act.sa_handler = handle;
+        sigaction(SIGALRM, &act, 0);
 
-    //for(; i < 44900; i++ )
-    //{
+        //for(; i < 44900; i++ )
+        //{
         printf("%d\n",pid);
-       // if(i == 0)
-         //   getchar();
-    //}
-    bad_thing();
-    sleep(1);
-    return 0;
+        // if(i == 0)
+        //   getchar();
+        //}
+        bad_thing();
+        sleep(1);
+        return 0;
 }
