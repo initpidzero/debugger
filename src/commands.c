@@ -696,13 +696,15 @@ static int clear_drs(pid_t pid, int num)
         if (write_dr(0, 7, pid) == -1)
                 return -1;
 
+        return 0;
 }
 
 /* delete watchpoint */
 static int remove_wp(uintptr_t addr, pid_t pid)
 {
         /* clear all debug registers. */
-        clear_drs(pid, 0);
+        if (clear_drs(pid, 0) == -1)
+                return -1;
         /* clear watchpoint data structure */
         bzero(&wp, sizeof(wp));
         printf("Watchpoint deleted\n");
@@ -727,8 +729,7 @@ static int remove_hw(uintptr_t addr, pid_t pid)
  */
 static int rm_bp(struct bp *bp, pid_t pid)
 {
-        if (poke_long(bp->addr, bp->word, pid) == -1)
-                return -1;
+        return poke_long(bp->addr, bp->word, pid);
 }
 
 /* Revert value at breakpoint address from trap instruction
@@ -816,6 +817,7 @@ static int resume_bp(struct bp *bp, pid_t pid)
                         return -1;
                 pwait(pid, 0);
         }
+        return 0;
 }
 
 int step_bp(pid_t pid)
@@ -960,6 +962,7 @@ static int remove_bp(uintptr_t addr)
         bzero(bp, sizeof(*bp));
         printf("Breakpoint deleted\n");
 
+        return 0;
 }
 
 int delete(char *buf, pid_t pid)
