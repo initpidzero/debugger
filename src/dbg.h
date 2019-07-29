@@ -13,7 +13,7 @@ int tester_fn(int *exit, int argc, char **argv);
 /* this structure keeps track of breakpoint related data */
 struct bp {
         uintptr_t addr; /* address where break point is set */
-        unsigned long word; /* content at breakpoint address */
+        long word; /* content at breakpoint address */
         unsigned long trap; /* replacement for trap instruction on address */
         int set; /* 0 = bp is not set. 1 = bp is set.
                   * 2 = breakpoint was hit and needs to be set again */

@@ -95,6 +95,7 @@ static char *tokenise(char *buf)
 */
 static pid_t extract_pid(char *buf)
 {
+        (void )buf;
         pid_t pid;
         char *temp = strtok(NULL, " \n");
         if (temp == NULL)

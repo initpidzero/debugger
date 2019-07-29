@@ -263,7 +263,7 @@ static int segv_handle(pid_t pid)
 /* Read word size data from address using PEEKDATA.
  * addr: address to which data should be read from
  * word: content at the address addr */
-static int peek_long(uintptr_t addr, unsigned long *word, pid_t pid)
+static int peek_long(uintptr_t addr, long *word, pid_t pid)
 {
         errno = 0; /* clear errno before peeking */
         *word = ptrace(PTRACE_PEEKDATA, pid, (void *)addr,
@@ -343,7 +343,7 @@ static int cont_wp(pid_t pid)
                 sig = pwait(pid, 0);
                 /* wait for either a signal or exit from debuggee*/
                 if (sig == SIGTRAP) {
-                        unsigned long word;
+                        long word;
                         /* When watchpoint is set on an address, however
                          * no value for watchpoint data is provided */
                         if (wp.no_value) {
@@ -534,6 +534,7 @@ static int regs_value(pid_t pid, char *reg)
 
 int regs(char *buf, pid_t pid)
 {
+        (void) buf;
         char *temp = strtok(NULL, "\n");
 
         if (temp == NULL)
@@ -625,8 +626,9 @@ static int write_dr(unsigned long word, int num, pid_t pid)
 
 int p_peek(char *buf, pid_t pid)
 {
+        (void) buf;
         uintptr_t addr = 0;
-        unsigned long word = 0;
+        long word = 0;
 
         char *temp = strtok(NULL, " \n");
         if (temp == NULL)
@@ -647,7 +649,7 @@ int p_peek(char *buf, pid_t pid)
 /* Writes data to an address.
  * addr: address to which data should be written
  * word: content to be written to address addr */
-static int poke_long(uintptr_t addr, unsigned long word, pid_t pid)
+static int poke_long(uintptr_t addr, long word, pid_t pid)
 {
         int status;
         errno = 0;
@@ -661,8 +663,9 @@ static int poke_long(uintptr_t addr, unsigned long word, pid_t pid)
 
 int p_poke(char *buf, pid_t pid)
 {
+        (void) buf;
         uintptr_t addr;
-        unsigned long word;
+        long word;
 
         char *temp = strtok(NULL, " ");
         if (temp == NULL)
@@ -676,7 +679,7 @@ int p_poke(char *buf, pid_t pid)
         if (temp == NULL)
                 return -1;
 
-        word = strtoul(temp, NULL, 16);
+        word = strtol(temp, NULL, 16);
         if (word == 0 || errno != 0)
                 return -1;
 
@@ -702,6 +705,8 @@ static int clear_drs(pid_t pid, int num)
 /* delete watchpoint */
 static int remove_wp(uintptr_t addr, pid_t pid)
 {
+        /* we would want to have multiple watchpoints */
+        (void )addr;
         /* clear all debug registers. */
         if (clear_drs(pid, 0) == -1)
                 return -1;
@@ -715,6 +720,8 @@ static int remove_wp(uintptr_t addr, pid_t pid)
 /* Delete hardware breakpoint */
 static int remove_hw(uintptr_t addr, pid_t pid)
 {
+        /* we would want to have multiple(4) hw breakpoints */
+        (void )addr;
         /* clear all debug registers */
         clear_drs(pid, 0);
         /* clear hardware breakpoint data structure */
@@ -967,6 +974,7 @@ static int remove_bp(uintptr_t addr)
 
 int delete(char *buf, pid_t pid)
 {
+        (void) buf;
         uintptr_t addr = 0;
         char *temp = strtok(NULL, " ");
         if (temp == NULL) {
@@ -1046,7 +1054,7 @@ static int get_fnaddr(uintptr_t ret, pid_t pid)
         int shift;
 
         /* so we will peak 8 bytes before the return address */
-        if (peek_long(addr, &word, pid) == -1)
+        if (peek_long(addr, (long *)&word, pid) == -1)
                 return -1;
         //printf("fn here = %lx \n", word);
 
@@ -1067,7 +1075,7 @@ static int get_fnaddr(uintptr_t ret, pid_t pid)
 static int get_retaddr(uintptr_t rbp, pid_t pid, uintptr_t *ret)
 {
         uintptr_t addr = rbp + WORD;
-        if (peek_long(addr, ret, pid) == -1)
+        if (peek_long(addr, (long *)ret, pid) == -1)
                 return -1;
 
         return 0;
@@ -1080,7 +1088,7 @@ static int get_next_frame(uintptr_t *rbp, pid_t pid)
 {
         uintptr_t word;
         /* what is at rbp */
-        if (peek_long(*rbp, &word, pid) == -1)
+        if (peek_long(*rbp, (long *)&word, pid) == -1)
                 return -1;
 
         *rbp = word;
@@ -1125,6 +1133,8 @@ int bt(pid_t pid)
 
 int p_sig(char *buf, pid_t pid)
 {
+        (void) buf;
+        (void) pid;
         char *temp = strtok(NULL, "\n");
         if (temp == NULL) {
                 printf("Current signal action: %s\n", sig_dis.act ? "pass" : "ignore");
@@ -1164,8 +1174,6 @@ static void show_hw()
 /* Show address for software breakpoints. */
 static void show_bp()
 {
-        struct bp *bp = NULL;
-
         if (!bp_list) {
                 printf("No breakpoint is set\n");
                 return;
@@ -1210,6 +1218,7 @@ static int set_hw_bp(uintptr_t addr, int num, pid_t pid)
 
 int hw(char *buf, pid_t pid)
 {
+        (void) buf;
         uintptr_t addr = 0;
 
         /* check if any other kinds of tracepoints are active */
@@ -1277,6 +1286,7 @@ static int set_wp(uintptr_t addr, long value, int no_value, pid_t pid)
 
 int watch(char *buf, pid_t pid)
 {
+        (void) buf;
         uintptr_t addr;
         long word; /* so the value could be signed or unsigned. */
         int no_value = 0;
@@ -1320,6 +1330,7 @@ int watch(char *buf, pid_t pid)
 
 int breakpoint(char *buf, pid_t pid)
 {
+        (void) buf;
         uintptr_t addr = 0;
         if (hw_bp.set == 1) {
                 printf("Hardware breakpoints are in use\n");
@@ -1483,7 +1494,7 @@ static int fork_exec(char *bin)
 
 int run(char *buf)
 {
-        pid_t pid;
+        (void) buf;
         int status;
         char *bin = strtok(NULL, " \n");
         if (bin == NULL)
@@ -1504,6 +1515,10 @@ int run(char *buf)
 static void
 int_handler(int sig, siginfo_t *siginfo, void *ucontext)
 {
+        /* atleast at this point, I don't know how we are going to use
+         * these, but I am keeping them for future */
+        (void )siginfo;
+        (void )ucontext;
         if (sig == SIGINT)
                 printf("Debugger interrupted\n");
         else
