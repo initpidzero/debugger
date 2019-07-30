@@ -8,7 +8,6 @@ int main (void)
 {
     unsigned long i = 0;
     pid_t pid = getpid();
-    int len = strlen(hello);
 
     for(; i < 40000; i++ )
     {
