@@ -1,5 +1,6 @@
 INC = .
 CFLAGS = -g -I$(INC) -Wall -Wextra
+SFLAGS = -g -I$(INC) -Wall -Wextra -static
 TARGET = dbg sigsegv sigill sigfpe sigalarm toy
 OBJS = src/commands.c util/heap.c util/list.c
 all: $(TARGET)
@@ -14,6 +15,6 @@ sigfpe: test/sigfpe.c
 sigalarm: test/sigalarm.c
 	$(CC) $(CFLAGS) -o $@ $<
 toy: test/toy.c
-	$(CC) $(CFLAGS) -o $@ $<
+	$(CC) $(SFLAGS) -o $@ $<
 clean:
 	$(RM) $(TARGET) 
