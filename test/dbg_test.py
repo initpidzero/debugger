@@ -238,7 +238,7 @@ def test5(i):
     print 'Test {0}'.format(i)
     print 'Test if read works'
     att = att_str(toy);
-    rd = '{0} 0x6a30e8\n'.format(RD) #create read string with address
+    rd = '{0} 0x4a70e8\n'.format(RD) #create read string with address
     argvs = [dbg, att, rd, DET, QUIT]
     exe_dbg(argvs)
     expected = '6f77206f6c6c6568\n'
@@ -249,8 +249,8 @@ def test6(i):
     print 'Test if write works'
     att = att_str(toy);
     #create write string with address and data
-    wr = '{0} 0x6a30e8 6767676767676767\n'.format(WR)
-    rd = '{0} 0x6a30e8\n'.format(RD) #create read string with address
+    wr = '{0} 0x4a70e8 6767676767676767\n'.format(WR)
+    rd = '{0} 0x4a70e8\n'.format(RD) #create read string with address
     argvs = [dbg, att, wr, rd, DET, QUIT]
     exe_dbg(argvs)
     expected = '6767676767676767\n'
@@ -260,9 +260,9 @@ def test7(i):
     print 'Test {0}'.format(i)
     print 'Test if breakpoint works'
     att = att_str(toy);
-    br = '{0} 400fa3\n'.format(BP) #create a breakpoint string
+    br = '{0} 401bb6\n'.format(BP) #create a breakpoint string
     argvs = [dbg, att, br, CONT, DEL, CONT, QUIT]
-    expected = 'Breakpoint hit at 400fa3\n'
+    expected = 'Breakpoint hit at 401bb6\n'
     exe_dbg(argvs)
     result(expected)
 
@@ -290,11 +290,11 @@ def test10(i):
     print 'Test {0}'.format(i)
     print 'Test for delete breakpoint and reset breakpoint'
     att = att_str(toy);
-    br1 = '{0} 400f7c\n'.format(BP)
-    br2 = '{0} 400f80\n'.format(BP) # set breakpoint at next ip
+    br1 = '{0} 401bbb\n'.format(BP)
+    br2 = '{0} 401bbf\n'.format(BP) # set breakpoint at next ip
     argvs = [dbg, att, br1, CONT, DEL, br2, STEP, DEL, CONT, QUIT]
-    expected1 = 'Breakpoint hit at 400f7c\n'
-    expected2 = 'Breakpoint hit at 400f80\n' #string for second breakpoint hit
+    expected1 = 'Breakpoint hit at 401bbb\n'
+    expected2 = 'Breakpoint hit at 401bbf\n' #string for second breakpoint hit
     exe_dbg(argvs)
     #check if both breakpoints are hit
     result_double(expected1, expected2)
@@ -303,9 +303,9 @@ def test11(i):
     print 'Test {0}'.format(i)
     print 'Test if breakpoint works on last instruction'
     att = att_str(toy);
-    br = '{0} 400fc6\n'.format(BP)
+    br = '{0} 401bd9\n'.format(BP)
     argvs = [dbg, att, br, CONT, CONT, QUIT]
-    expected1 = 'Breakpoint hit at 400fc6\n'
+    expected1 = 'Breakpoint hit at 401bd9\n'
     expected2 = 'Debuggee exits with status 0\n' #debuggee should exit
     exe_dbg(argvs)
     result_double(expected1, expected2)
@@ -314,9 +314,9 @@ def test12(i):
     print 'Test {0}'.format(i)
     print 'Test if breakpoint works on for()'
     att = att_str(toy);
-    br = '{0} 400f7c\n'.format(BP)
+    br = '{0} 401bbb\n'.format(BP)
     argvs = [dbg, att, br, CONT, DEL, DET, QUIT]
-    expected = 'Breakpoint hit at 400f7c\n'
+    expected = 'Breakpoint hit at 401bbb\n'
     exe_dbg(argvs)
     result(expected)
 
@@ -372,9 +372,9 @@ def test17(i):
     print 'Test {0}'.format(i)
     print 'Test if no breakpoints are left in debuggee'
     att = att_str(toy);
-    br = '{0} 400fa3\n'.format(BP) #create a breakpoint string
+    br = '{0} 401bb6\n'.format(BP) #create a breakpoint string
     argvs = [dbg, att, br, CONT, DEL, CONT, QUIT]
-    expected1 = 'Breakpoint hit at 400fa3\n'
+    expected1 = 'Breakpoint hit at 401bb6\n'
     expected2 = 'Debuggee exits with status 0\n'
     exe_dbg(argvs)
     result_double(expected1, expected2)
