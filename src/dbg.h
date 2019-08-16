@@ -3,6 +3,10 @@
 
 #define WORD 8
 #define BUFSIZE 256
+#define MAX_BP 4
+#define MAX_WP 4
+#define MAX_HW 4
+
 /* this function is main debugger api, it can used by passing commands in buf */
 int dbg(int *exit, char *buf);
 

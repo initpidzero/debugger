@@ -569,6 +569,8 @@ static struct bp *get_bp_ds(uintptr_t addr)
 {
         struct bp *bp = NULL;
         static unsigned int num_bp = 0;
+        if(num_bp == MAX_BP)
+                return NULL;
         /* If breakpoint doesn't exist, allocate a ds. */
         if (!bp_list) {
                 /* at the beginning no break point was set */
@@ -582,7 +584,7 @@ static struct bp *get_bp_ds(uintptr_t addr)
         } else {
                 /* If breakpoint exists at addr, return the associated ds. */
                 bp = get_bp_from_list(addr);
-                if(bp)
+                if (bp)
                         return bp;
 
                 struct list *temp = (struct list *)malloc(sizeof(*bp_list));
@@ -1355,6 +1357,11 @@ int breakpoint(char *buf, pid_t pid)
                 return -1;
 
         bp = get_bp_ds(addr);
+        if (!bp) {
+                printf("No more breakpoints can be set\n");
+                return 0;
+        }
+
         if (bp->set == 1 || bp->set == 2) {
                 if (addr == bp->addr) {
 
