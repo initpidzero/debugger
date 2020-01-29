@@ -6,7 +6,6 @@ struct list {
         void *element;
         struct list *next;
         struct list *prev;
-        struct list *head;
 };
 
 /* initiate list with element */

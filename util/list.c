@@ -12,7 +12,6 @@ void list_init(struct list *list, void *element)
         list->element = element;
         list->next = NULL;
         list->prev = NULL;
-        list->head = list;
 }
 
 unsigned int get_num_members(struct list *list)
@@ -24,7 +23,7 @@ unsigned int get_num_members(struct list *list)
                 return num;
         }
 
-        for (temp = list->head; temp != NULL; temp = temp->next) {
+        for (temp = list; temp != NULL; temp = temp->next) {
                 num++;
         }
 
@@ -42,7 +41,6 @@ void list_add_next(struct list **list, void *element, struct list *new)
         new->element = element;
         (*list)->next = new;
         new->prev = *list;
-        new->head = (*list)->head;
         new->next = NULL;
         *list = new;
         printf("list %p list->prev %p new %p\n", *list, (*list)->prev, new);
@@ -57,7 +55,7 @@ void *find_element(struct list *list, void *element)
                 return NULL;
         }
 
-        for (temp = list->head; temp != NULL; temp = temp->next) {
+        for (temp = list; temp != NULL; temp = temp->next) {
                 if (temp->element == element)
                         return temp;
         }
@@ -67,7 +65,7 @@ void *find_element(struct list *list, void *element)
 void *list_del_node(struct list **list, struct list *node)
 {
         struct list *temp;
-        for (temp = (*list)->head; temp != NULL; temp = temp->next) {
+        for (temp = *list; temp != NULL; temp = temp->next) {
                 if (temp == node) {
                         temp->prev->next = node->next;
                         temp->next->prev = node->prev;
