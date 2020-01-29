@@ -21,4 +21,6 @@ void list_add_next(struct list **list, void *element, struct list *new);
 /* find the head of the list for this given element */
 void *find_element(struct list *list, void *element);
 
+/* remove this node from the list */
+void *list_del_node(struct list **list, struct list *node);
 #endif

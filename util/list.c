@@ -45,7 +45,7 @@ void list_add_next(struct list **list, void *element, struct list *new)
         new->head = (*list)->head;
         new->next = NULL;
         *list = new;
-        printf("list %p list->prev %p new %p\n", list, (*list)->prev, new);
+        printf("list %p list->prev %p new %p\n", *list, (*list)->prev, new);
 }
 
 void *find_element(struct list *list, void *element)
@@ -60,6 +60,18 @@ void *find_element(struct list *list, void *element)
         for (temp = list->head; temp != NULL; temp = temp->next) {
                 if (temp->element == element)
                         return temp;
+        }
+        return NULL;
+}
+
+void *list_del_node(struct list **list, struct list *node)
+{
+        struct list *temp;
+        for (temp = (*list)->head; temp != NULL; temp = temp->next) {
+                if (temp == node) {
+                        temp->prev->next = node->next;
+                        temp->next->prev = node->prev;
+                }
         }
         return NULL;
 }
