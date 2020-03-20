@@ -152,7 +152,7 @@ void rm_mem(void *mem)
 void rm_all_map()
 {
         struct list *temp;
-        for (temp = heap->head; temp!= NULL; temp = temp->next) {
+        for (temp = heap; temp!= NULL; temp = temp->next) {
                 unpage(temp->element);
         }
 }

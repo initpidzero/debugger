@@ -231,7 +231,7 @@ static void rm_all_bp(void)
         /* This might need resturcturing */
         /* for now we are embedding structures in list,
          * a better implmentation is other way round */
-        struct list *temp = bp_list->head;
+        struct list *temp = bp_list;
         while (temp) {
                 struct list *next = temp->next;
                 free(temp->element);
@@ -553,7 +553,7 @@ static struct bp *get_bp_from_list(uintptr_t addr)
         struct bp *bp = NULL;
         if(!bp_list)
                 return NULL;
-        struct list *temp = bp_list->head;
+        struct list *temp = bp_list;
         for (;temp; temp = temp->next) {
                 bp = (struct bp*)temp->element;
                 if(bp->addr == addr)
@@ -874,7 +874,7 @@ static int cont_bp(pid_t pid)
         struct list *temp = NULL;
         struct bp *bp = NULL;
         if(bp_list)
-                temp = bp_list->head;
+                temp = bp_list;
         for (; temp; temp = temp->next)
         {
                 bp = (struct bp *)temp->element;
@@ -920,7 +920,7 @@ static int cont_bp(pid_t pid)
         /* we are reusing the list variable */
         temp = NULL;
         if(bp_list)
-                temp = bp_list->head;
+                temp = bp_list;
         /* stupid overhead to make sure every set breakpoint is removed */
         for (; temp; temp = temp->next) {
                 bp = (struct bp *)temp->element;
@@ -1180,7 +1180,7 @@ static void show_bp()
                 printf("No breakpoint is set\n");
                 return;
         }
-        struct list *temp = bp_list->head;
+        struct list *temp = bp_list;
         for (; temp; temp = temp->next) {
                 struct bp *bp = (struct bp *)temp->element;
                 if (bp->set == 1 || bp->set == 2)
@@ -1424,7 +1424,7 @@ int pdetach(pid_t pid)
 {
         struct list *temp = NULL;
         if (bp_list)
-                temp = bp_list->head;
+                temp = bp_list;
         for (; temp; temp = temp->next) {
                 /* remove breakpoint data before detaching */
                 struct bp *bp = (struct bp *)temp->element;
