@@ -37,7 +37,7 @@ void list_add_next(struct list **list, void *element, struct list *new)
                 return;
         }
 
-        /* list moves on, since the head is embedded in list */
+        /* list moves on, list now point to new element */
         new->element = element;
         (*list)->next = new;
         new->prev = *list;
@@ -62,14 +62,25 @@ void *find_element(struct list *list, void *element)
         return NULL;
 }
 
-void *list_del_node(struct list **list, struct list *node)
+void list_del_node(struct list *list, struct list *node)
 {
         struct list *temp;
-        for (temp = *list; temp != NULL; temp = temp->next) {
+        for (temp = list; temp != NULL; temp = temp->next) {
                 if (temp == node) {
                         temp->prev->next = node->next;
                         temp->next->prev = node->prev;
                 }
         }
+}
+
+void *get_head(struct list *list)
+{
+        struct list *temp;
+        /* traverse backwards */
+        for (temp = list; temp != NULL; temp = temp->prev) {
+                if (temp->prev == NULL)
+                        return temp;
+        }
+
         return NULL;
 }
