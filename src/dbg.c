@@ -275,6 +275,7 @@ int tester_fn(int *exit, int argc, char **argv)
         return 0;
 }
 
+/* main function */
 int main (int argc, char **argv)
 {
         int exit = 1; /* The value is changed to zero when user calls quit command */

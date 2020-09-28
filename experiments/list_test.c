@@ -5,8 +5,8 @@
 
 struct test
 {
-    int i;
-    char c;
+        int i;
+        char c;
 };
 
 int populate_element(struct test *element, int i, char c)
@@ -17,7 +17,7 @@ int populate_element(struct test *element, int i, char c)
 
 void print_list(struct list *list)
 {
-        for (struct list *temp = list->head; temp != NULL; temp = temp->next) {
+        for (struct list *temp = list; temp != NULL; temp = temp->next) {
                 //       printf("temp = %p\n", &temp);
                 printf("i = %d\n",((struct test *)temp->element)->i);
                 printf("c = %c\n",((struct test *)temp->element)->c);
@@ -50,9 +50,13 @@ int main(void)
 
         }
 
-        print_list(list);
+        print_list(&head);
 
-        list_del_node(&list, del);
-        print_list(list);
+        printf("after deletion\n");
+        list_del_node(&head, del);
+        print_list(&head);
+        del = (struct list *)get_head(list);
+        printf("head = %d head = %d\n", ((struct test *)head.element)->i,
+               ((struct test *)del->element)->i);
     return 0;
 }
